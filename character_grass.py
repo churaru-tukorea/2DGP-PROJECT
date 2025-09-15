@@ -8,7 +8,6 @@ character = load_image('character.png')
 grass = load_image('grass.png')
 
 
-
 def draw_rectangle():
     x = 400
     y = 90
