@@ -15,29 +15,39 @@ def handle_events():
         elif event.type == SDL_KEYDOWN and event.key == SDLK_ESCAPE:
             running = False
         else:
-            pass
+            character.handle_event(event)  # space 키가 들어오면 소년에게 전달.
 
 
 
 
 
 def reset_world():
-    pass
+
+    global world
+    global character
 
 
     world = []
 
+
+    character = Character()
+    world.append(character)
 
 
 
 
 
 def update_world():
+    for o in world:
+        o.update()
     pass
 
 
 
 def render_world():
+    clear_canvas()
+    for o in world:
+        o.draw()
     pass
 
 

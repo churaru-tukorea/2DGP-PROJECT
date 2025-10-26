@@ -8,13 +8,21 @@ class Idle:
     def __init__(self, boy):
         self.boy = boy
 
-    def enter(self): pass
+    def enter(self, state_event): pass
 
-    def exit(self): pass
+    def exit(self, state_event): pass
 
-    def do(self): pass
+    def do(self, dt):
+        self.idle_timer += dt
+        if self.idle_timer >= 0.125:  # 8fps = 1/8s
+            self.idle_timer -= 0.125
+            self.anim_frame ^= 1  # 0 <-> 1 토글
 
-    def draw(self): pass
+    def draw(self):
+        if not self.image:
+            return
+        l, b, w, h = sprite[ACTION['idle']][self.anim_frame]
+        self.image.clip_draw(l, b, w, h, self.x, self.y)
 
 
 
@@ -24,7 +32,13 @@ class Character:
         self.pid = pid
         self.face_dir = +1
         self.move_dir = 0
+        self.image = load_image('project_character_sheet.png')
 
+        #애니메이션을 위한 변수들
+        self.anim_frame = 0
+        self.idle_timer = 0.0
+        
+        
         self.action = "idle"
 
         # 앞으로 필요할 상태용(타이머 같은것도 일단 있음)
@@ -46,7 +60,7 @@ class Character:
         self.state_machine.handle_state_event(('INPUT', event))
 
     def update(self):
-        self.state_machine.update()
+        self.state.do(self, dt)
 
     def draw(self):
-        self.state_machine.draw()
+        self.state.draw(self)
