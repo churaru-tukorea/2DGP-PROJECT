@@ -3,29 +3,32 @@ from pico2d import load_image, get_time, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDL
 from sprite_tuples import ACTION, sprite, sweat
 from state_machine import StateMachine
 
+
 class Idle:
     def __init__(self, boy):
         self.boy = boy
 
-    def enter(self, state_event): pass
-
-    def exit(self, state_event): pass
-
-    def do(self, dt):
+    def enter(self, state_event):
         pass
 
-    def draw(self):  # ← Idle.draw(self) 그대로
+    def exit(self, event):
+        pass
+
+    def do(self):
+        pass
+
+    def draw(self):
         if not self.boy.image:
             return
+        from pico2d import get_time
         now = get_time()
 
         while now >= self.boy.next_idle_flip_at:
-            self.boy.anim_frame ^= 1 # 0과 1간의 전환만 하면 되니까 그냥 이걸로
-            self.boy.next_idle_flip_at += 0.125  
+            self.boy.anim_frame ^= 1
+            self.boy.next_idle_flip_at += 0.125
 
         l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
         self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
-
 
 
 class Character:
@@ -58,11 +61,11 @@ class Character:
         })
         pass
 
-    def handle_event(self):
+    def handle_event(self, event):
         self.state_machine.handle_state_event(('INPUT', event))
 
     def update(self):
-        self.state.do(self)
+        self.state_machine.update()
 
     def draw(self):
-        self.state.draw(self)
+        self.state_machine.draw()
