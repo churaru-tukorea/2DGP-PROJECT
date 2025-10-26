@@ -18,8 +18,7 @@ class Idle:
         pass
 
     def draw(self):
-        if not self.boy.image:
-            return
+
         from pico2d import get_time
         now = get_time()
 

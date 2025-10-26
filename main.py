@@ -48,6 +48,7 @@ def render_world():
     clear_canvas()
     for o in world:
         o.draw()
+    update_canvas()
     pass
 
 
