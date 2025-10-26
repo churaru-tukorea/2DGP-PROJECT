@@ -1,5 +1,4 @@
-from pico2d import load_image, get_time, SDL_KEYDOWN, SDLK_SPACE, SDLK_RIGHT, SDL_KEYUP, SDLK_LEFT
-from sdl2 import SDL_KEYDOWN, SDLK_SPACE, SDLK_RIGHT, SDL_KEYUP, SDLK_LEFT, SDLK_a
+from pico2d import load_image, get_time, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_RIGHT, SDLK_LEFT, SDLK_a
 # 애니 좌표/액션 인덱스:
 from sprite_tuples import ACTION, sprite, sweat
 from state_machine import StateMachine
@@ -13,16 +12,19 @@ class Idle:
     def exit(self, state_event): pass
 
     def do(self, dt):
-        self.idle_timer += dt
-        if self.idle_timer >= 0.125:  # 8fps = 1/8s
-            self.idle_timer -= 0.125
-            self.anim_frame ^= 1  # 0 <-> 1 토글
+        pass
 
-    def draw(self):
-        if not self.image:
+    def draw(self):  # ← Idle.draw(self) 그대로
+        if not self.boy.image:
             return
-        l, b, w, h = sprite[ACTION['idle']][self.anim_frame]
-        self.image.clip_draw(l, b, w, h, self.x, self.y)
+        now = get_time()
+
+        while now >= self.boy.next_idle_flip_at:
+            self.boy.anim_frame ^= 1 # 0과 1간의 전환만 하면 되니까 그냥 이걸로
+            self.boy.next_idle_flip_at += 0.125  
+
+        l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
+        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
 
 
 
@@ -33,6 +35,8 @@ class Character:
         self.face_dir = +1
         self.move_dir = 0
         self.image = load_image('project_character_sheet.png')
+
+        self.next_idle_flip_at = get_time() + 0.125  # idle 8fps = 1/8초
 
         #애니메이션을 위한 변수들
         self.anim_frame = 0
@@ -49,18 +53,16 @@ class Character:
         self.parry_cooldown_until = None
 
         self.IDLE = Idle(self)
-        self.state_machine = StateMachine(self.IDLE,{
-
-         }
-        )
-
+        self.state_machine = StateMachine(self.IDLE, {
+            self.IDLE: {}
+        })
         pass
 
     def handle_event(self):
         self.state_machine.handle_state_event(('INPUT', event))
 
     def update(self):
-        self.state.do(self, dt)
+        self.state.do(self)
 
     def draw(self):
         self.state.draw(self)
