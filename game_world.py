@@ -33,3 +33,7 @@ def remove_object(o): # 게임 월드의 객체를 제거하는 함수
             return #return 하는 이유는 찾아지지 않았을 경우 에러를 출력하기 위해
     raise Exception('월드에 존재하지 않은 객체를 삭제하려고 합니다.')
     #이렇게 하는게 안전하다.
+
+def clear():
+    for layer in world:
+        layer.clear()
