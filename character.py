@@ -117,15 +117,8 @@ class Parry_Hold:
         pass
 
     def draw(self):
-
-        from pico2d import get_time
-        now = get_time()
-
-        while now >= self.boy.next_idle_flip:
-            self.boy.anim_frame ^= 1
-            self.boy.next_idle_flip += 0.125
-
-        l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
+        # parry_hold는 1프레임 고정
+        l, b, w, h = sprite[ACTION['parry_hold']][0]
         self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
 
 
@@ -171,11 +164,12 @@ class Character:
         self.ATTACK_FIRE = Attack_Fire(self)
         self.PARRY_HOLD = Parry_Hold(self)
 
-        self.state_machine = StateMachine(self.ATTACK_FIRE, {
+        self.state_machine = StateMachine(self.PARRY_HOLD, {
             self.IDLE: {},
             self.MOVE: {},
             self.JUMP: {},
-            self.ATTACK_FIRE: {}
+            self.ATTACK_FIRE: {},
+            self.PARRY_HOLD: {}
         })
         pass
 
