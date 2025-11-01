@@ -9,7 +9,7 @@ class Idle:
         self.boy = boy
 
     def enter(self, state_event):
-        pass
+        self.boy.action = "idle"
 
     def exit(self, event):
         pass
@@ -143,7 +143,10 @@ class Character:
         #애니메이션을 위한 변수들
         self.anim_frame = 0
         self.idle_timer = 0.0
-        
+
+        #move를 위한 변수들
+        self.move_frame = 0
+        self.next_move_flip_at = get_time() + (1.0 / 11.0)  # ≈0.0909s
         
         self.action = "idle"
 
