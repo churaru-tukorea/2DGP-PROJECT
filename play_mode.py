@@ -3,7 +3,8 @@ from character import Character
 import game_world
 
 
-
+running = True
+character = None
 
 
 def handle_events():
@@ -22,30 +23,32 @@ def handle_events():
 
 
 
-def reset_world():
+def init():
 
     global character
+    global running
 
-
+    running = True
 
 
     character = Character()
     game_world.add_object(character, 1)
 
 
-def update_world():
+def update():
     game_world.update()
 
 
 
-def render_world():
+def draw():
     clear_canvas()
     game_world.render()
     update_canvas()
 
+def finish():
+    pass
 
 
-running = True
 
 
 
