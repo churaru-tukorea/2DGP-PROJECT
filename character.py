@@ -45,13 +45,13 @@ class Move:
 
         now = get_time()
 
-        STEP = 0.125
+        STEP = 0.5
         while now >= self.boy.next_move_flip:
             self.boy.move_frame = (self.boy.move_frame + 1) % 10  # 0~9
             self.boy.next_move_flip += STEP
 
         l, b, w, h = sprite[ACTION['move']][self.boy.move_frame]
-        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
+        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y,200,200)
 
 class Jump_Land:
     def __init__(self, boy):
