@@ -29,6 +29,106 @@ class Idle:
         l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
         self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
 
+class Move:
+    def __init__(self, boy):
+        self.boy = boy
+
+    def enter(self, state_event):
+        pass
+
+    def exit(self, event):
+        pass
+
+    def do(self):
+        pass
+
+    def draw(self):
+
+        from pico2d import get_time
+        now = get_time()
+
+        while now >= self.boy.next_idle_flip_at:
+            self.boy.anim_frame ^= 1
+            self.boy.next_idle_flip_at += 0.125
+
+        l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
+        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
+
+class Jump_Land:
+    def __init__(self, boy):
+        self.boy = boy
+
+    def enter(self, state_event):
+        pass
+
+    def exit(self, event):
+        pass
+
+    def do(self):
+        pass
+
+    def draw(self):
+
+        from pico2d import get_time
+        now = get_time()
+
+        while now >= self.boy.next_idle_flip_at:
+            self.boy.anim_frame ^= 1
+            self.boy.next_idle_flip_at += 0.125
+
+        l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
+        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
+
+class Attack_Fire:
+    def __init__(self, boy):
+        self.boy = boy
+
+    def enter(self, state_event):
+        pass
+
+    def exit(self, event):
+        pass
+
+    def do(self):
+        pass
+
+    def draw(self):
+
+        from pico2d import get_time
+        now = get_time()
+
+        while now >= self.boy.next_idle_flip_at:
+            self.boy.anim_frame ^= 1
+            self.boy.next_idle_flip_at += 0.125
+
+        l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
+        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
+
+class Parry_Hold:
+    def __init__(self, boy):
+        self.boy = boy
+
+    def enter(self, state_event):
+        pass
+
+    def exit(self, event):
+        pass
+
+    def do(self):
+        pass
+
+    def draw(self):
+
+        from pico2d import get_time
+        now = get_time()
+
+        while now >= self.boy.next_idle_flip_at:
+            self.boy.anim_frame ^= 1
+            self.boy.next_idle_flip_at += 0.125
+
+        l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
+        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
+
 
 class Character:
     def __init__(self, pid=1):
