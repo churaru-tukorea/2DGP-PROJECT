@@ -58,7 +58,8 @@ class Jump_Land:
         self.boy = boy
 
     def enter(self, state_event):
-        pass
+        self.boy.action = "jump_land"
+
 
     def exit(self, event):
         pass
@@ -67,16 +68,15 @@ class Jump_Land:
         pass
 
     def draw(self):
-
-        from pico2d import get_time
         now = get_time()
+        STEP = 0.1
+        # one-shot: 마지막 프레임(9)에 도달하면 정지
+        while now >= self.boy.next_jump_flip and self.boy.jump_frame < 9:
+            self.boy.jump_frame += 1
+            self.boy.next_jump_flip += STEP
 
-        while now >= self.boy.next_idle_flip:
-            self.boy.anim_frame ^= 1
-            self.boy.next_idle_flip += 0.125
-
-        l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
-        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
+        l, b, w, h = sprite[ACTION['jump_land']][self.boy.jump_frame]
+        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y,200,200)
 
 class Attack_Fire:
     def __init__(self, boy):
@@ -146,7 +146,12 @@ class Character:
         #move를 위한 변수들
         self.move_frame = 0
         self.next_move_flip = get_time() + 0.125 # move를 넘기는 기준의 시간이 되어주는
-        
+
+        #jump를 위한 변수들
+        self.jump_frame = 0
+        self.next_jump_flip = get_time() + 0.1
+
+
         self.action = "idle"
 
         # 앞으로 필요할 상태용(타이머 같은것도 일단 있음)
@@ -158,11 +163,12 @@ class Character:
 
         self.IDLE = Idle(self)
         self.MOVE = Move(self)
+        self.JUMP = Jump_Land(self)
 
-
-        self.state_machine = StateMachine(self.MOVE, {
+        self.state_machine = StateMachine(self.JUMP, {
             self.IDLE: {},
-            self.MOVE: {}
+            self.MOVE: {},
+            self.JUMP: {}
         })
         pass
 
