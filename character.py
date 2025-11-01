@@ -19,12 +19,11 @@ class Idle:
 
     def draw(self):
 
-        from pico2d import get_time
         now = get_time()
 
-        while now >= self.boy.next_idle_flip_at:
+        while now >= self.boy.next_idle_flip:
             self.boy.anim_frame ^= 1
-            self.boy.next_idle_flip_at += 0.125
+            self.boy.next_idle_flip += 0.125
 
         l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
         self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
@@ -34,7 +33,7 @@ class Move:
         self.boy = boy
 
     def enter(self, state_event):
-        pass
+        self.boy.action = "move"
 
     def exit(self, event):
         pass
@@ -44,14 +43,14 @@ class Move:
 
     def draw(self):
 
-        from pico2d import get_time
         now = get_time()
 
-        while now >= self.boy.next_idle_flip_at:
-            self.boy.anim_frame ^= 1
-            self.boy.next_idle_flip_at += 0.125
+        STEP = 0.125
+        while now >= self.boy.next_move_flip:
+            self.boy.move_frame = (self.boy.move_frame + 1) % 10  # 0~9
+            self.boy.next_move_flip += STEP
 
-        l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
+        l, b, w, h = sprite[ACTION['move']][self.boy.move_frame]
         self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
 
 class Jump_Land:
@@ -72,9 +71,9 @@ class Jump_Land:
         from pico2d import get_time
         now = get_time()
 
-        while now >= self.boy.next_idle_flip_at:
+        while now >= self.boy.next_idle_flip:
             self.boy.anim_frame ^= 1
-            self.boy.next_idle_flip_at += 0.125
+            self.boy.next_idle_flip += 0.125
 
         l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
         self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
@@ -97,9 +96,9 @@ class Attack_Fire:
         from pico2d import get_time
         now = get_time()
 
-        while now >= self.boy.next_idle_flip_at:
+        while now >= self.boy.next_idle_flip:
             self.boy.anim_frame ^= 1
-            self.boy.next_idle_flip_at += 0.125
+            self.boy.next_idle_flip += 0.125
 
         l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
         self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
@@ -122,9 +121,9 @@ class Parry_Hold:
         from pico2d import get_time
         now = get_time()
 
-        while now >= self.boy.next_idle_flip_at:
+        while now >= self.boy.next_idle_flip:
             self.boy.anim_frame ^= 1
-            self.boy.next_idle_flip_at += 0.125
+            self.boy.next_idle_flip += 0.125
 
         l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
         self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
@@ -138,7 +137,7 @@ class Character:
         self.move_dir = 0
         self.image = load_image('project_character_sheet.png')
 
-        self.next_idle_flip_at = get_time() + 0.125  # idle 8fps = 1/8초
+        self.next_idle_flip = get_time() + 0.125  # idle을 넘기는 기준의 시간이 되어주는
 
         #애니메이션을 위한 변수들
         self.anim_frame = 0
@@ -146,7 +145,7 @@ class Character:
 
         #move를 위한 변수들
         self.move_frame = 0
-        self.next_move_flip_at = get_time() + (1.0 / 11.0)  # ≈0.0909s
+        self.next_move_flip = get_time() + 0.125 # move를 넘기는 기준의 시간이 되어주는
         
         self.action = "idle"
 
@@ -158,8 +157,12 @@ class Character:
         self.parry_cooldown_until = None
 
         self.IDLE = Idle(self)
-        self.state_machine = StateMachine(self.IDLE, {
-            self.IDLE: {}
+        self.MOVE = Move(self)
+
+
+        self.state_machine = StateMachine(self.MOVE, {
+            self.IDLE: {},
+            self.MOVE: {}
         })
         pass
 
