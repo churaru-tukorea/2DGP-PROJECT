@@ -83,7 +83,7 @@ class Attack_Fire:
         self.boy = boy
 
     def enter(self, state_event):
-        pass
+        self.boy.action = "attack_fire"
 
     def exit(self, event):
         pass
@@ -93,15 +93,15 @@ class Attack_Fire:
 
     def draw(self):
 
-        from pico2d import get_time
         now = get_time()
+        STEP = (1.0 / 15.0)  # ~15fps
+        LAST = 6  # 마지막 프레임 인덱스
+        while now >= self.boy.next_attack_flip and self.boy.attack_frame < LAST:
+            self.boy.attack_frame += 1
+            self.boy.next_attack_flip += STEP
 
-        while now >= self.boy.next_idle_flip:
-            self.boy.anim_frame ^= 1
-            self.boy.next_idle_flip += 0.125
-
-        l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
-        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
+        l, b, w, h = sprite[ACTION['attack_fire']][self.boy.attack_frame]
+        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y,200,200)
 
 class Parry_Hold:
     def __init__(self, boy):
@@ -151,6 +151,10 @@ class Character:
         self.jump_frame = 0
         self.next_jump_flip = get_time() + 0.1
 
+        #attack를 위한 변수들
+        self.attack_frame = 0
+        self.next_attack_flip = get_time() + (1.0 / 15.0)
+
 
         self.action = "idle"
 
@@ -164,11 +168,14 @@ class Character:
         self.IDLE = Idle(self)
         self.MOVE = Move(self)
         self.JUMP = Jump_Land(self)
+        self.ATTACK_FIRE = Attack_Fire(self)
+        self.PARRY_HOLD = Parry_Hold(self)
 
-        self.state_machine = StateMachine(self.JUMP, {
+        self.state_machine = StateMachine(self.ATTACK_FIRE, {
             self.IDLE: {},
             self.MOVE: {},
-            self.JUMP: {}
+            self.JUMP: {},
+            self.ATTACK_FIRE: {}
         })
         pass
 
