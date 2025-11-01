@@ -1,13 +1,9 @@
 from pico2d import *
-import play_mode
+import logo_mode
+import game_framework
+import logo_mode as start_mode
+#이건 타이틀 모드를 스타트 모드라고 간주할 수 있다.
 
 open_canvas()
-play_mode.init()
-# game loop
-while play_mode.running:
-    play_mode.handle_events()
-    play_mode.update()
-    play_mode.draw()
-    delay(0.01)
-play_mode.finish()
+game_framework.run(start_mode)
 close_canvas()
