@@ -367,6 +367,29 @@ class Character:
         self.state_machine.handle_state_event(('INPUT', event))
 
     def update(self):
+        #생각해봤는데 상태랑 상관없이 무조건 매 프레임 돌아야 하는 애들은 그냥 한번에 여기서 계산하기로 하는게 편하지 않을까?d
+        # dt 계산
+        now = get_time()
+        dt = now - self.last_time
+        self.last_time = now
+
+        # 가로 이동: 공중/지상 공통으로 그냥 넣자
+        self.vx = self.move_speed * self.move_dir
+        self.x += self.vx * dt
+
+        # 세로 이동: 중력
+        self.vy += self.gravity * dt
+        self.y += self.vy * dt
+
+        # 바닥 체크
+        if self.y <= self.ground_y:
+            self.y = self.ground_y
+            self.vy = 0
+            # 떨어지는 상태인데 바닥 닿았으면 착지로 보내기
+            # (착지 상태가 아니고, 공격 중도 아닐 때만)
+            self.state_machine.handle_state_event(('LAND', None))
+
+        # 상태머신 쪽 로직도 돌리기
         self.state_machine.update()
 
     def draw(self):
