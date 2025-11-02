@@ -278,6 +278,10 @@ class Character:
 
         self.action = "idle"
 
+
+        #j가 눌려있는지 아닌지
+        self.is_jump_key_pressed = False
+
         # 앞으로 필요할 상태용(타이머 같은것도 일단 있음)
         self.is_attack_reserved = False
         self.attack_fire_time = None
@@ -287,7 +291,9 @@ class Character:
 
         self.IDLE = Idle(self)
         self.MOVE = Move(self)
-        self.JUMP = Jump_Land(self)
+        self.JUMP_UP = Jump_Up(self)
+        self.JUMP_FALL = Jump_Fall(self)
+        self.JUMP_LAND = Jump_Land(self)
         self.ATTACK_FIRE = Attack_Fire(self)
         self.PARRY_HOLD = Parry_Hold(self)
 
@@ -297,7 +303,7 @@ class Character:
                 left_down: self.MOVE,
                 right_up: self.MOVE,
                 left_up: self.MOVE,
-                j_down: self.JUMP,
+                j_down: self.JUMP_UP,
                 a_down: self.ATTACK_FIRE,
                 p_down: self.PARRY_HOLD,
             },
@@ -306,28 +312,58 @@ class Character:
                 left_down: self.MOVE,
                 right_up: self.IDLE,
                 left_up: self.IDLE,
-                j_down: self.JUMP,
+                j_down: self.JUMP_UP,
                 a_down: self.ATTACK_FIRE,
                 p_down: self.PARRY_HOLD,
             },
-            self.JUMP: {
-                a_down: self.ATTACK_FIRE,  # 패링만 제외하고 공격 허용
+            # 위로 뜨는 중
+            self.JUMP_UP: {
+                # 키를 뗐거나 시간 끝나서 do()에서 'JUMP_FALL' 이벤트 던지면 여기로 감
+
+            },
+            # 떨어지는 중
+            self.JUMP_FALL: {
+                # 착지하면 Character.update()나 Jump_Fall.do()에서 ('LAND', None) 던짐
+
+                lambda e: e[0] == 'LAND': self.JUMP_LAND
+            },
+            # 착지 애니 돌기
+            self.JUMP_LAND: {
                 time_out: self.IDLE
-                # 점프 해제/낙하 등은 다음 단계에서 상태 내부로 가는게
             },
             self.ATTACK_FIRE: {
                 time_out: self.IDLE
             },
             self.PARRY_HOLD: {
-                right_down: self.MOVE,  # 이동/점프 입력 시 즉시 해제하고 전환
+                right_down: self.MOVE,
                 left_down: self.MOVE,
-                j_down: self.JUMP,
-                p_up: self.IDLE
+                j_down: self.JUMP_UP,
             },
         })
         pass
 
     def handle_event(self, event):
+        # 좌우 입력같은걸 다양하게 받을 것 같아서 그냥 여기에서 하는게...? 이게 최선인진 모르지만 그건 나중에.
+        if event.type == SDL_KEYDOWN:
+            if event.key == SDLK_RIGHT:
+                self.move_dir = +1
+                self.face_dir = +1
+            elif event.key == SDLK_LEFT:
+                self.move_dir = -1
+                self.face_dir = -1
+            elif event.key == SDLK_j:
+                self.is_jump_key_pressed = True
+
+        elif event.type == SDL_KEYUP:
+            if event.key == SDLK_RIGHT and self.move_dir > 0:
+                self.move_dir = 0
+            elif event.key == SDLK_LEFT and self.move_dir < 0:
+                self.move_dir = 0
+            elif event.key == SDLK_j:
+                self.is_jump_key_pressed = False
+                # 점프 중이면 떨어지는 상태로 가라고 이벤트 던져도 됨
+                self.state_machine.handle_state_event(('JUMP_FALL', None))
+
         self.state_machine.handle_state_event(('INPUT', event))
 
     def update(self):
