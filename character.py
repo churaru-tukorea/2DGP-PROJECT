@@ -346,8 +346,8 @@ class Character:
                 p_down: self.PARRY_HOLD,
             },
             self.MOVE: {
-                right_down: self.MOVE,
-                left_down: self.MOVE,
+                right_down: self.IDLE,
+                left_down: self.IDLE,
                 right_up: self.IDLE,
                 left_up: self.IDLE,
                 j_down: self.JUMP_UP,
