@@ -79,9 +79,9 @@ class Idle:
         l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
         # 방향 적용
         if self.boy.face_dir == 1:
-            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
+            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
         else:
-            self.boy.image.clip_composite_draw(l, b, w, h, 0, 'h', self.boy.x, self.boy.y, 200, 200)
+            self.boy.image.clip_composite_draw(l, b, w, h, 0,'h', self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
 
 
 class Move:
@@ -108,10 +108,11 @@ class Move:
             self.boy.next_move_flip += STEP
 
         l, b, w, h = sprite[ACTION['move']][self.boy.move_frame]
+        # 방향 적용
         if self.boy.face_dir == 1:
-            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
-        elif self.boy.face_dir == -1:
-            self.boy.image.clip_composite_draw(l, b, w, h, 0,'h', self.boy.x, self.boy.y, 200, 200)
+            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
+        else:
+            self.boy.image.clip_composite_draw(l, b, w, h, 0,'h', self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
 
 
 class Jump_Up:
@@ -139,10 +140,9 @@ class Jump_Up:
         l, b, w, h = sprite[ACTION['jump_land']][0]
         # 방향 적용
         if self.boy.face_dir == 1:
-            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
+            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
         else:
-            self.boy.image.clip_composite_draw(l, b, w, h, 0, 'h', self.boy.x, self.boy.y, 200, 200)
-
+            self.boy.image.clip_composite_draw(l, b, w, h, 0,'h', self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
 
 
 class Jump_Fall:
@@ -172,9 +172,9 @@ class Jump_Fall:
         l, b, w, h = sprite[ACTION['jump_land']][1]
         # 방향 적용
         if self.boy.face_dir == 1:
-            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
+            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
         else:
-            self.boy.image.clip_composite_draw(l, b, w, h, 0, 'h', self.boy.x, self.boy.y, 200, 200)
+            self.boy.image.clip_composite_draw(l, b, w, h, 0,'h', self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
         #이것도 내려오는 이미지가 1개로 그냥 이것만 보여주는거임
 
 class Jump_Land:
@@ -204,9 +204,9 @@ class Jump_Land:
         l, b, w, h = sprite[ACTION['jump_land']][self.boy.jump_frame]
         # 방향 적용
         if self.boy.face_dir == 1:
-            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
+            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
         else:
-            self.boy.image.clip_composite_draw(l, b, w, h, 0, 'h', self.boy.x, self.boy.y, 200, 200)
+            self.boy.image.clip_composite_draw(l, b, w, h, 0,'h', self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
 
         if self.boy.jump_frame == 9:
             self.boy.state_machine.handle_state_event(('TIMEOUT', None))
@@ -243,10 +243,11 @@ class Attack_Fire:
 
         # 렌더
         l, b, w, h = sprite[ACTION['attack_fire']][self.boy.attack_frame]
+        # 방향 적용
         if self.boy.face_dir == 1:
-            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y,200,200)
+            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
         else:
-            self.boy.image.clip_composite_draw(l, b, w, h, 0, 'h', self.boy.x, self.boy.y,200,200)
+            self.boy.image.clip_composite_draw(l, b, w, h, 0,'h', self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
 
         # 원샷 종료 시점에 복귀 이벤트 발송
         if self.boy.attack_frame >= 6:  # 마지막 프레임
@@ -274,10 +275,11 @@ class Parry_Hold:
     def draw(self):
         # parry_hold는 1프레임 고정
         l, b, w, h = sprite[ACTION['parry_hold']][0]
+        # 방향 적용
         if self.boy.face_dir == 1:
-            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
+            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
         else:
-            self.boy.image.clip_composite_draw(l, b, w, h, 0, 'h', self.boy.x, self.boy.y, 200, 200)
+            self.boy.image.clip_composite_draw(l, b, w, h, 0, 'h', self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
 
 
 class Character:
@@ -500,5 +502,59 @@ class Character:
         self.draw_sweat_overlay() # 캐릭터 관련된걸 그리고 그 위에 땀방울을 그리는
 
     def draw_sweat_overlay(self):
-        pass
+        # 예약 중이 아니면 표시 안 함
+        if not (self.is_attack_reserved and self.attack_fire_time is not None):
+            return
+
+        now = get_time()
+        t_rem = self.attack_fire_time - now
+        if t_rem <= 0:
+            return
+
+        # 진행도(0→1)
+        T_TOTAL = 3.0
+        progress = 1.0 - (t_rem / T_TOTAL)
+        if progress < 0.0: progress = 0.0
+        if progress > 1.0: progress = 1.0
+
+        # 마지막 신호창(0.25s)에서 깜빡임
+        if t_rem <= getattr(self, 'signal_window_sec', 0.25):
+            if int(now * 16) % 2 == 1:
+                return
+
+        # 현재 프레임의 원본 크기(w,h) → 몸체 스케일 비율 계산
+        action = self.action  # 'idle','move','jump_land','attack_fire','parry_hold'
+        if action == 'idle':
+            idx = self.anim_frame
+        elif action == 'move':
+            idx = self.move_frame
+        elif action == 'attack_fire':
+            idx = self.attack_frame
+        elif action == 'parry_hold':
+            idx = 0
+        else:  # 'jump_land' 등
+            idx = self.jump_frame
+
+        l, b, w, h = sprite[ACTION[action]][idx]
+        # 몸체가 (w,h) → (draw_w,draw_h)로 그려지므로 이 비율을 따라간다
+        sx_scale = self.draw_w / max(w, 1)
+        sy_scale = self.draw_h / max(h, 1)
+
+        # 머리 옆 기준 오프셋(스케일 반영)
+        ox = (self.draw_w * 0.35) * (1 if self.face_dir == 1 else -1)
+        oy = (self.draw_h * 0.35)
+
+        # 진행도에 따른 하강(스케일 반영)
+        fall_px = int(self.draw_h * 0.25 * progress)
+
+        sx = self.x + ox
+        sy = self.y + oy - fall_px
+
+        # sweat[0] 조각을 몸체와 같은 비율로 스케일
+        sl, sb, sw, sh = sweat[0]
+        sdw = int(sw * sx_scale)
+        sdh = int(sh * sy_scale)
+
+        # 땀방울은 좌우 반전 없이 위치만 반대로 (대칭 이미지)
+        self.image.clip_draw(sl, sb, sw, sh, sx, sy, sdw, sdh)
 
