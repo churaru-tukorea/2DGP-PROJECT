@@ -274,7 +274,10 @@ class Parry_Hold:
     def draw(self):
         # parry_hold는 1프레임 고정
         l, b, w, h = sprite[ACTION['parry_hold']][0]
-        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
+        if self.boy.face_dir == 1:
+            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
+        else:
+            self.boy.image.clip_composite_draw(l, b, w, h, 0, 'h', self.boy.x, self.boy.y, 200, 200)
 
 
 class Character:
@@ -494,4 +497,8 @@ class Character:
 
     def draw(self):
         self.state_machine.draw()
+        self.draw_sweat_overlay() # 캐릭터 관련된걸 그리고 그 위에 땀방울을 그리는
+
+    def draw_sweat_overlay(self):
+        pass
 
