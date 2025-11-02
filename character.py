@@ -80,9 +80,15 @@ class Move:
 
     def enter(self, state_event):
         self.boy.action = "move"
+        if right_down(state_event) or left_up(state_event):
+            self.boy.move_dir = 1
+            self.boy.face_dir = 1
+        elif left_down(state_event) or right_up(state_event):
+            self.boy.move_dir = -1
+            self.boy.face_dir = -1
 
     def exit(self, event):
-        pass
+        self.boy.move_dir = 0
 
     def do(self):
         pass
@@ -126,7 +132,11 @@ class Jump_Up:
     def draw(self):
         # 프레임 0만 그린다
         l, b, w, h = sprite[ACTION['jump_land']][0]
-        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
+        # 방향 적용
+        if self.boy.face_dir == 1:
+            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
+        else:
+            self.boy.image.clip_composite_draw(l, b, w, h, 0, 'h', self.boy.x, self.boy.y, 200, 200)
 
 
 
@@ -155,7 +165,11 @@ class Jump_Fall:
 
     def draw(self):
         l, b, w, h = sprite[ACTION['jump_land']][1]
-        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
+        # 방향 적용
+        if self.boy.face_dir == 1:
+            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
+        else:
+            self.boy.image.clip_composite_draw(l, b, w, h, 0, 'h', self.boy.x, self.boy.y, 200, 200)
         #이것도 내려오는 이미지가 1개로 그냥 이것만 보여주는거임
 
 class Jump_Land:
@@ -367,56 +381,43 @@ class Character:
         pass
 
     def handle_event(self, event):
-        # 좌우 입력같은걸 다양하게 받을 것 같아서 그냥 여기에서 하는게...? 이게 최선인진 모르지만 그건 나중에.
-        if event.type == SDL_KEYDOWN:
-            if event.key == SDLK_RIGHT:
-                self.right_pressed = True
-            elif event.key == SDLK_LEFT:
-                self.left_pressed = True
-            elif event.key == SDLK_j:
-                self.is_jump_key_pressed = True
+        if event.type == SDL_KEYDOWN and event.key == SDLK_j:
+            self.is_jump_key_pressed = True
 
-        elif event.type == SDL_KEYUP:
-            if event.key == SDLK_RIGHT:
-                self.right_pressed = False
-            elif event.key == SDLK_LEFT:
-                self.left_pressed = False
-            elif event.key == SDLK_j:
-                self.is_jump_key_pressed = False
-                # 점프 중이면 떨어지는 상태로 가라고 이벤트 던지기
-                self.state_machine.handle_state_event(('JUMP_FALL', None))
+        elif event.type == SDL_KEYUP and event.key == SDLK_j:
+            self.is_jump_key_pressed = False
+            # 올라가는 중이면 떨어지라고 보내기
+            self.state_machine.handle_state_event(('JUMP_FALL', None))
 
-            # 여기서 항상 다시 계산
-        self._recalc_move_dir()
-
-        # 상태머신에도 그대로 넘김
+        # 나머지 키들은 전부 상태머신으로
         self.state_machine.handle_state_event(('INPUT', event))
         
         
     def update(self):
-        #생각해봤는데 상태랑 상관없이 무조건 매 프레임 돌아야 하는 애들은 그냥 한번에 여기서 계산하기로 하는게 편하지 않을까?d
+        #생각해봤는데 상태랑 상관없이 무조건 매 프레임 돌아야 하는 애들은 그냥 한번에 여기서 계산하기로 하는게 편하지 않을까?
         # dt 계산
+
+
         now = get_time()
         dt = now - self.last_time
         self.last_time = now
 
-        # 가로 이동: 공중/지상 공통으로 그냥 넣자
+        # 가로 이동
         self.vx = self.move_speed * self.move_dir
         self.x += self.vx * dt
 
-        # 세로 이동: 중력
+        # 세로 이동
         self.vy += self.gravity * dt
         self.y += self.vy * dt
 
-        # 바닥 체크
+        # 바닥
         if self.y <= self.ground_y:
             self.y = self.ground_y
             self.vy = 0
-            # 떨어지는 상태인데 바닥 닿았으면 착지로 보내기
-            # (착지 상태가 아니고, 공격 중도 아닐 때만)
-            self.state_machine.handle_state_event(('LAND', None))
+            # 공중 상태일 때만 LAND 보내기
+            if self.state_machine.cur_state in (self.JUMP_UP, self.JUMP_FALL):
+                self.state_machine.handle_state_event(('LAND', None))
 
-        # 상태머신 쪽 로직도 돌리기
         self.state_machine.update()
 
     def draw(self):
