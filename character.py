@@ -1,7 +1,52 @@
 from pico2d import load_image, get_time, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_RIGHT, SDLK_LEFT, SDLK_a
+from sdl2 import SDLK_j
+
 # 애니 좌표/액션 인덱스:
 from sprite_tuples import ACTION, sprite, sweat
 from state_machine import StateMachine
+
+
+
+def space_down(e): # e is space down ?
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE
+
+time_out = lambda e: e[0] == 'TIMEOUT'
+
+def right_down(e):
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
+
+
+def right_up(e):
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYUP and e[1].key == SDLK_RIGHT
+
+
+def left_down(e):
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_LEFT
+
+
+def left_up(e):
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYUP and e[1].key == SDLK_LEFT
+
+#공격 키
+def a_down(e):
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_a
+
+#점프 시작 키
+def j_down(e):
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_j
+
+#점프키를 땠을떄 거기에 맞게떨어지도록
+def j_up(e):
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_j
+
+#패링 시작 키
+def j_down(e):
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_j
+
+#패링 마무리 키
+def j_up(e):
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_j
+
 
 
 class Idle:
@@ -165,8 +210,8 @@ class Character:
         self.PARRY_HOLD = Parry_Hold(self)
 
         self.state_machine = StateMachine(self.PARRY_HOLD, {
-            self.IDLE: {},
-            self.MOVE: {},
+            self.IDLE: {right_down:self.MOVE, left_down:self.MOVE, right_up:self.MOVE, left_up:self.MOVE},
+            self.MOVE: {right_down:self.MOVE, left_down:self.MOVE, right_up:self.MOVE, left_up:self.MOVE},
             self.JUMP: {},
             self.ATTACK_FIRE: {},
             self.PARRY_HOLD: {}
