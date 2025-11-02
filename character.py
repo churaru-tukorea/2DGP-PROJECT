@@ -1,4 +1,5 @@
-from pico2d import load_image, get_time, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_RIGHT, SDLK_LEFT, SDLK_a
+from pico2d import load_image, get_time, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_RIGHT, SDLK_LEFT, SDLK_a, \
+    get_canvas_height
 from sdl2 import SDLK_j, SDLK_p
 
 # 애니 좌표/액션 인덱스:
@@ -90,13 +91,17 @@ class Move:
 
         now = get_time()
 
-        STEP = 0.5
+        STEP = 0.125
         while now >= self.boy.next_move_flip:
             self.boy.move_frame = (self.boy.move_frame + 1) % 10  # 0~9
             self.boy.next_move_flip += STEP
 
         l, b, w, h = sprite[ACTION['move']][self.boy.move_frame]
-        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y,200,200)
+        if self.boy.face_dir == 1:
+            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
+        elif self.boy.face_dir == -1:
+            self.boy.image.clip_composite_draw(l, b, w, h, 0,'h', self.boy.x, self.boy.y, 200, 200)
+
 
 class Jump_Up:
     def __init__(self, boy):
@@ -277,6 +282,19 @@ class Character:
         self.last_time = get_time()    # dt 구하려고
 
         self.action = "idle"
+
+        #테스트용
+        self.draw_w = 200
+        self.draw_h = 200
+
+        # 캔버스 크기 받아두기
+        self.canvas_h = get_canvas_height()
+
+        # 지금은 스테이지가 없으니까, 그냥 창을 그거로 한다.
+        self.ground_y = self.draw_h // 2   # 200이면 100
+
+        # 시작 y도 이걸로 맞춰놓자
+        self.x, self.y = 400, self.ground_y
 
 
         #j가 눌려있는지 아닌지
