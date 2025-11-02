@@ -8,7 +8,7 @@ from state_machine import StateMachine
 
 # 공격의 여러 상태를 추가(이게 공격 이후 어떤상태에 갈지도 다 다르기 떄무네)
 def attack_ready(e):      return e[0] == 'ATTACK_READY'
-def attack_end_land(e):   return e[0] == 'ATTACK_END_LAND'
+def attack_end_air(e):   return e[0] == 'ATTACK_END_AIR'
 def attack_end_move(e):   return e[0] == 'ATTACK_END_MOVE'
 def attack_end_idle(e):   return e[0] == 'ATTACK_END_IDLE'
 
@@ -227,7 +227,7 @@ class Attack_Fire:
     def exit(self, ev=None):
         pass
 
-    def do(self, dt):
+    def do(self):
         pass  # 시간 진행은 draw에서
 
     def draw(self):
@@ -251,7 +251,7 @@ class Attack_Fire:
         # 원샷 종료 시점에 복귀 이벤트 발송
         if self.boy.attack_frame >= 6:  # 마지막 프레임
             if self._from_air:
-                self.boy.state_machine.handle_state_event(('ATTACK_END_LAND', None))
+                self.boy.state_machine.handle_state_event(('ATTACK_END_AIR', None))
             else:
                 if self.boy.right_pressed or self.boy.left_pressed:
                     self.boy.state_machine.handle_state_event(('ATTACK_END_MOVE', None))
@@ -396,7 +396,7 @@ class Character:
                 time_out: self.IDLE
             },
             self.PARRY_HOLD: {
-                attack_end_land: self.JUMP,  # 착지 모션/낙하 상태로 (JumpLand 쓰면 그걸로 교체)
+                attack_end_air: self.JUMP_FALL,  # 착지 모션/낙하 상태로 (JumpLand 쓰면 그걸로 교체)
                 attack_end_move: self.MOVE,
                 attack_end_idle: self.IDLE,
             },
