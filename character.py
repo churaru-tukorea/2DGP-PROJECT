@@ -244,9 +244,9 @@ class Attack_Fire:
         # 렌더
         l, b, w, h = sprite[ACTION['attack_fire']][self.boy.attack_frame]
         if self.boy.face_dir == 1:
-            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
+            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y,200,200)
         else:
-            self.boy.image.clip_composite_draw(l, b, w, h, 0, 'h', self.boy.x, self.boy.y)
+            self.boy.image.clip_composite_draw(l, b, w, h, 0, 'h', self.boy.x, self.boy.y,200,200)
 
         # 원샷 종료 시점에 복귀 이벤트 발송
         if self.boy.attack_frame >= 6:  # 마지막 프레임
@@ -393,12 +393,15 @@ class Character:
                 time_out: self.IDLE
             },
             self.ATTACK_FIRE: {
-                time_out: self.IDLE
-            },
-            self.PARRY_HOLD: {
                 attack_end_air: self.JUMP_FALL,  # 착지 모션/낙하 상태로 (JumpLand 쓰면 그걸로 교체)
                 attack_end_move: self.MOVE,
                 attack_end_idle: self.IDLE,
+            },
+            self.PARRY_HOLD: {
+                p_up: self.IDLE,
+                right_down: self.MOVE,
+                left_down: self.MOVE
+
             },
         })
         pass
