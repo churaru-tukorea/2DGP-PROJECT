@@ -98,6 +98,72 @@ class Move:
         l, b, w, h = sprite[ACTION['move']][self.boy.move_frame]
         self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y,200,200)
 
+class Jump_Up:
+    def __init__(self, boy):
+        self.boy = boy
+
+    def enter(self, state_event):
+        self.boy.action = "attack_fire"
+        self.boy.jump_frame = 0
+        STEP = 0.5  # draw의 STEP과 동일하게
+        self.boy.next_jump_flip = get_time() + STEP
+
+
+    def exit(self, event):
+        pass
+
+    def do(self):
+        pass
+
+    def draw(self):
+        now = get_time()
+        STEP = 0.5
+        # one-shot: 마지막 프레임(9)에 도달하면 정지
+        while now >= self.boy.next_jump_flip and self.boy.jump_frame < 9:
+            self.boy.jump_frame += 1
+            self.boy.next_jump_flip += STEP
+
+        l, b, w, h = sprite[ACTION['jump_land']][self.boy.jump_frame]
+        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y,200,200)
+
+        # 마지막 프레임에 도달했으면 TIMEOUT 이벤트 발생시켜서 상태 전환 유도
+        if self.boy.jump_frame == 9:
+            self.boy.state_machine.handle_state_event(('TIMEOUT', None))
+
+
+class Jump_Fall:
+    def __init__(self, boy):
+        self.boy = boy
+
+    def enter(self, state_event):
+        self.boy.action = "attack_fire"
+        self.boy.jump_frame = 0
+        STEP = 0.5  # draw의 STEP과 동일하게
+        self.boy.next_jump_flip = get_time() + STEP
+
+
+    def exit(self, event):
+        pass
+
+    def do(self):
+        pass
+
+    def draw(self):
+        now = get_time()
+        STEP = 0.5
+        # one-shot: 마지막 프레임(9)에 도달하면 정지
+        while now >= self.boy.next_jump_flip and self.boy.jump_frame < 9:
+            self.boy.jump_frame += 1
+            self.boy.next_jump_flip += STEP
+
+        l, b, w, h = sprite[ACTION['jump_land']][self.boy.jump_frame]
+        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y,200,200)
+
+        # 마지막 프레임에 도달했으면 TIMEOUT 이벤트 발생시켜서 상태 전환 유도
+        if self.boy.jump_frame == 9:
+            self.boy.state_machine.handle_state_event(('TIMEOUT', None))
+
+
 class Jump_Land:
     def __init__(self, boy):
         self.boy = boy
