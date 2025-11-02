@@ -71,7 +71,7 @@ class Idle:
             self.boy.next_idle_flip += 0.125
 
         l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
-        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
+        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y,200,200)
 
 class Move:
     def __init__(self, boy):
@@ -129,6 +129,9 @@ class Attack_Fire:
 
     def enter(self, state_event):
         self.boy.action = "attack_fire"
+        self.boy.attack_frame = 0
+        STEP = 0.5  # draw의 STEP과 동일하게
+        self.boy.next_attack_flip = get_time() + STEP
 
     def exit(self, event):
         pass
@@ -139,7 +142,7 @@ class Attack_Fire:
     def draw(self):
 
         now = get_time()
-        STEP = (1.0 / 15.0)  # ~15fps
+        STEP = 0.5
         LAST = 6  # 마지막 프레임 인덱스
         while now >= self.boy.next_attack_flip and self.boy.attack_frame < LAST:
             self.boy.attack_frame += 1
@@ -147,6 +150,10 @@ class Attack_Fire:
 
         l, b, w, h = sprite[ACTION['attack_fire']][self.boy.attack_frame]
         self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y,200,200)
+
+        # 마지막 프레임에 도달했으면 TIMEOUT 이벤트 발생시켜서 상태 전환 유도
+        if self.boy.attack_frame == 6:
+            self.boy.state_machine.handle_state_event(('TIMEOUT', None))
 
 class Parry_Hold:
     def __init__(self, boy):
@@ -213,6 +220,8 @@ class Character:
             self.IDLE: {
                 right_down: self.MOVE,
                 left_down: self.MOVE,
+                right_up: self.MOVE,
+                left_up: self.MOVE,
                 j_down: self.JUMP,
                 a_down: self.ATTACK_FIRE,
                 p_down: self.PARRY_HOLD,
