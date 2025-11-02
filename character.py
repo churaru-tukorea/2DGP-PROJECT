@@ -103,32 +103,26 @@ class Jump_Up:
         self.boy = boy
 
     def enter(self, state_event):
-        self.boy.action = "attack_fire"
+        self.boy.action = "jump_land"
         self.boy.jump_frame = 0
-        STEP = 0.5  # draw의 STEP과 동일하게
-        self.boy.next_jump_flip = get_time() + STEP
+        self.boy.vy = self.boy.jump_speed
+        self.boy.jump_pressed_time = get_time()
 
 
     def exit(self, event):
         pass
 
     def do(self):
-        pass
+        # 점프 키를 뗐거나, 홀드 시간이 끝났으면 떨어지는 상태로 넘김(마리오 보면 점프키 때기 전까지 계속 위로 올라가니까)
+        now = get_time()
+        if (not self.boy.is_jump_key_pressed) or (now - self.boy.jump_pressed_time > self.boy.max_jump_hold):
+            self.boy.state_machine.handle_state_event(('JUMP_FALL', None))
 
     def draw(self):
-        now = get_time()
-        STEP = 0.5
-        # one-shot: 마지막 프레임(9)에 도달하면 정지
-        while now >= self.boy.next_jump_flip and self.boy.jump_frame < 9:
-            self.boy.jump_frame += 1
-            self.boy.next_jump_flip += STEP
+        # 프레임 0만 그린다
+        l, b, w, h = sprite[ACTION['jump_land']][0]
+        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
 
-        l, b, w, h = sprite[ACTION['jump_land']][self.boy.jump_frame]
-        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y,200,200)
-
-        # 마지막 프레임에 도달했으면 TIMEOUT 이벤트 발생시켜서 상태 전환 유도
-        if self.boy.jump_frame == 9:
-            self.boy.state_machine.handle_state_event(('TIMEOUT', None))
 
 
 class Jump_Fall:
@@ -136,33 +130,28 @@ class Jump_Fall:
         self.boy = boy
 
     def enter(self, state_event):
-        self.boy.action = "attack_fire"
-        self.boy.jump_frame = 0
-        STEP = 0.5  # draw의 STEP과 동일하게
-        self.boy.next_jump_flip = get_time() + STEP
+        self.boy.action = "jump_land"
+        self.boy.jump_frame = 1
+        # 혹시 위로 너무 천천히 가고 있으면 아래로 방향만 만들기
+        if self.boy.vy > 0:
+            self.boy.vy = 0
 
 
     def exit(self, event):
         pass
 
     def do(self):
-        pass
+        # 여기서는 그냥 떨어지기만 한다.
+        # 땅 닿으면 착지 이벤트로 넘겨주는거임
+        if self.boy.y <= self.boy.ground_y:
+            self.boy.y = self.boy.ground_y
+            self.boy.vy = 0
+            self.boy.state_machine.handle_state_event(('LAND', None))
 
     def draw(self):
-        now = get_time()
-        STEP = 0.5
-        # one-shot: 마지막 프레임(9)에 도달하면 정지
-        while now >= self.boy.next_jump_flip and self.boy.jump_frame < 9:
-            self.boy.jump_frame += 1
-            self.boy.next_jump_flip += STEP
-
-        l, b, w, h = sprite[ACTION['jump_land']][self.boy.jump_frame]
-        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y,200,200)
-
-        # 마지막 프레임에 도달했으면 TIMEOUT 이벤트 발생시켜서 상태 전환 유도
-        if self.boy.jump_frame == 9:
-            self.boy.state_machine.handle_state_event(('TIMEOUT', None))
-
+        l, b, w, h = sprite[ACTION['jump_land']][1]
+        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
+        #이것도 내려오는 이미지가 1개로 그냥 이것만 보여주는거임
 
 class Jump_Land:
     def __init__(self, boy):
@@ -171,7 +160,7 @@ class Jump_Land:
     def enter(self, state_event):
         self.boy.action = "attack_fire"
         self.boy.jump_frame = 0
-        STEP = 0.5  # draw의 STEP과 동일하게
+        STEP = 0.05  # draw의 STEP과 동일하게
         self.boy.next_jump_flip = get_time() + STEP
 
 
@@ -183,16 +172,15 @@ class Jump_Land:
 
     def draw(self):
         now = get_time()
-        STEP = 0.5
-        # one-shot: 마지막 프레임(9)에 도달하면 정지
+        STEP = 0.05
+        # 2~9까지만 돌자
         while now >= self.boy.next_jump_flip and self.boy.jump_frame < 9:
             self.boy.jump_frame += 1
             self.boy.next_jump_flip += STEP
 
         l, b, w, h = sprite[ACTION['jump_land']][self.boy.jump_frame]
-        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y,200,200)
+        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
 
-        # 마지막 프레임에 도달했으면 TIMEOUT 이벤트 발생시켜서 상태 전환 유도
         if self.boy.jump_frame == 9:
             self.boy.state_machine.handle_state_event(('TIMEOUT', None))
 
