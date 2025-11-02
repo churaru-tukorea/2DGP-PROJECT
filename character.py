@@ -56,6 +56,7 @@ class Idle:
 
     def enter(self, state_event):
         self.boy.action = "idle"
+        self.boy.move_dir = 0
 
     def exit(self, event):
         pass
@@ -72,7 +73,12 @@ class Idle:
             self.boy.next_idle_flip += 0.125
 
         l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
-        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y,200,200)
+        # 방향 적용
+        if self.boy.face_dir == 1:
+            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
+        else:
+            self.boy.image.clip_composite_draw(l, b, w, h, 0, 'h', self.boy.x, self.boy.y, 200, 200)
+
 
 class Move:
     def __init__(self, boy):
@@ -80,15 +86,10 @@ class Move:
 
     def enter(self, state_event):
         self.boy.action = "move"
-        if right_down(state_event) or left_up(state_event):
-            self.boy.move_dir = 1
-            self.boy.face_dir = 1
-        elif left_down(state_event) or right_up(state_event):
-            self.boy.move_dir = -1
-            self.boy.face_dir = -1
+
 
     def exit(self, event):
-        self.boy.move_dir = 0
+        pass
 
     def do(self):
         pass
@@ -381,15 +382,26 @@ class Character:
         pass
 
     def handle_event(self, event):
+        # --- 좌/우 눌림 상태 관리 ---
+        if event.type == SDL_KEYDOWN:
+            if event.key == SDLK_RIGHT:
+                self.right_pressed = True
+            elif event.key == SDLK_LEFT:
+                self.left_pressed = True
+        elif event.type == SDL_KEYUP:
+            if event.key == SDLK_RIGHT:
+                self.right_pressed = False
+            elif event.key == SDLK_LEFT:
+                self.left_pressed = False
+
+        # 점프키 플래그/낙하 전환 (기존 유지)
         if event.type == SDL_KEYDOWN and event.key == SDLK_j:
             self.is_jump_key_pressed = True
-
         elif event.type == SDL_KEYUP and event.key == SDLK_j:
             self.is_jump_key_pressed = False
-            # 올라가는 중이면 떨어지라고 보내기
             self.state_machine.handle_state_event(('JUMP_FALL', None))
 
-        # 나머지 키들은 전부 상태머신으로
+        # 나머지는 상태머신에 그대로 전달
         self.state_machine.handle_state_event(('INPUT', event))
         
         
@@ -401,6 +413,25 @@ class Character:
         now = get_time()
         dt = now - self.last_time
         self.last_time = now
+
+        # --- 좌/우 입력 해석 ---
+        r = 1 if self.right_pressed else 0
+        l = 1 if self.left_pressed else 0
+        if r and not l:
+            self.move_dir = +1
+        elif l and not r:
+            self.move_dir = -1
+        elif r and l:  # 동시 입력일 때 정책: "마지막으로 누른 방향" 우선
+            # 마지막 누른 방향을 기억하고 싶다면 아래 3줄 추가:
+            # (필드) self.last_dir_pressed = +1/-1  를 __init__에 0으로 초기화
+            # (handle_event에서) KEYDOWN 시 self.last_dir_pressed = +1 또는 -1 갱신
+            self.move_dir = self.last_dir_pressed if hasattr(self, 'last_dir_pressed') and self.last_dir_pressed else 0
+        else:
+            self.move_dir = 0
+
+        # 얼굴 방향은 어느 상태든 움직임이 있으면 그쪽으로
+        if self.move_dir != 0:
+            self.face_dir = 1 if self.move_dir > 0 else -1
 
         # 가로 이동
         self.vx = self.move_speed * self.move_dir
@@ -423,15 +454,3 @@ class Character:
     def draw(self):
         self.state_machine.draw()
 
-    def _recalc_move_dir(self):
-        # 둘 중 하나만 눌린 경우
-        if self.right_pressed and not self.left_pressed:
-            self.move_dir = +1
-            self.face_dir = +1
-        elif self.left_pressed and not self.right_pressed:
-            self.move_dir = -1
-            self.face_dir = -1
-        else:
-            # 둘 다 누르거나 둘 다 뗀 경우
-            self.move_dir = 0
-            # face_dir은 그대로 두는 게 자연스러움
