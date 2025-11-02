@@ -37,7 +37,7 @@ def j_down(e):
 
 #점프키를 땠을떄 거기에 맞게떨어지도록
 def j_up(e):
-    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_j
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYUP and e[1].key == SDLK_j
 
 #패링 시작 키
 def p_down(e):
@@ -45,7 +45,7 @@ def p_down(e):
 
 #패링 마무리 키
 def p_up(e):
-    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_p
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYUP and e[1].key == SDLK_p
 
 
 
@@ -207,6 +207,20 @@ class Character:
         self.attack_frame = 0
         self.next_attack_flip = get_time() + (1.0 / 15.0)
 
+        # 방향, move 말고도 jump도 해당 방향으로 뛰고 공격도 해당 방향으로 하니까 여기에서 만들고 다룸.
+        self.face_dir = +1
+        self.move_dir = 0  # -1: 왼쪽, 0: 안 움직임, +1: 오른쪽
+
+        # 물리
+        self.vx = 0.0
+        self.vy = 0.0
+        self.move_speed = 250.0     # px/s
+        self.jump_speed = 500.0     # px/s 위로
+        self.gravity = -1500.0      # px/s^2
+        self.max_jump_hold = 0.18   # 버튼 홀드로 더 올라갈 수 있는 시간(초)
+
+        self.jump_pressed_time = 0.0   # 언제 점프 시작했는지
+        self.last_time = get_time()    # dt 구하려고
 
         self.action = "idle"
 
@@ -254,6 +268,7 @@ class Character:
                 right_down: self.MOVE,  # 이동/점프 입력 시 즉시 해제하고 전환
                 left_down: self.MOVE,
                 j_down: self.JUMP,
+                p_up: self.IDLE
             },
         })
         pass
