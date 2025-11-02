@@ -6,7 +6,11 @@ from sdl2 import SDLK_j, SDLK_p
 from sprite_tuples import ACTION, sprite, sweat
 from state_machine import StateMachine
 
-
+# 공격의 여러 상태를 추가(이게 공격 이후 어떤상태에 갈지도 다 다르기 떄무네)
+def attack_ready(e):      return e[0] == 'ATTACK_READY'
+def attack_end_land(e):   return e[0] == 'ATTACK_END_LAND'
+def attack_end_move(e):   return e[0] == 'ATTACK_END_MOVE'
+def attack_end_idle(e):   return e[0] == 'ATTACK_END_IDLE'
 
 def space_down(e): # e is space down ?
     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE
@@ -211,33 +215,48 @@ class Attack_Fire:
     def __init__(self, boy):
         self.boy = boy
 
-    def enter(self, state_event):
-        self.boy.action = "attack_fire"
+    def enter(self, ev=None):
+        # 애니 초기화
         self.boy.attack_frame = 0
-        STEP = 0.5  # draw의 STEP과 동일하게
-        self.boy.next_attack_flip = get_time() + STEP
+        self._step = 1.0 / 15.0   # ~15fps
+        self._next = get_time() + self._step
+        # 발동 순간의 공중 여부와 Y위치 저장해놓기
+        self._from_air = bool(ev and isinstance(ev, tuple) and ev[1] and ev[1].get('air'))
+        self._anchor_y = self.boy.y
 
-    def exit(self, event):
+    def exit(self, ev=None):
         pass
 
-    def do(self):
-        pass
+    def do(self, dt):
+        pass  # 시간 진행은 draw에서
 
     def draw(self):
-
         now = get_time()
-        STEP = 0.5
-        LAST = 6  # 마지막 프레임 인덱스
-        while now >= self.boy.next_attack_flip and self.boy.attack_frame < LAST:
+
+        # 위치 잠금(공중/지상 모두 공격 중엔 Y를 고정)
+        self.boy.y = self._anchor_y
+
+        # 프레임 진행
+        while now >= self._next and self.boy.attack_frame < 6:
             self.boy.attack_frame += 1
-            self.boy.next_attack_flip += STEP
+            self._next += self._step
 
+        # 렌더
         l, b, w, h = sprite[ACTION['attack_fire']][self.boy.attack_frame]
-        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y,200,200)
+        if self.boy.face_dir == 1:
+            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y)
+        else:
+            self.boy.image.clip_composite_draw(l, b, w, h, 0, 'h', self.boy.x, self.boy.y)
 
-        # 마지막 프레임에 도달했으면 TIMEOUT 이벤트 발생시켜서 상태 전환 유도
-        if self.boy.attack_frame == 6:
-            self.boy.state_machine.handle_state_event(('TIMEOUT', None))
+        # 원샷 종료 시점에 복귀 이벤트 발송
+        if self.boy.attack_frame >= 6:  # 마지막 프레임
+            if self._from_air:
+                self.boy.state_machine.handle_state_event(('ATTACK_END_LAND', None))
+            else:
+                if self.boy.right_pressed or self.boy.left_pressed:
+                    self.boy.state_machine.handle_state_event(('ATTACK_END_MOVE', None))
+                else:
+                    self.boy.state_machine.handle_state_event(('ATTACK_END_IDLE', None))
 
 class Parry_Hold:
     def __init__(self, boy):
@@ -343,8 +362,8 @@ class Character:
                 right_up: self.MOVE,
                 left_up: self.MOVE,
                 j_down: self.JUMP_UP,
-                a_down: self.ATTACK_FIRE,
                 p_down: self.PARRY_HOLD,
+                attack_ready: self.ATTACK_FIRE
             },
             self.MOVE: {
                 right_down: self.IDLE,
@@ -352,20 +371,22 @@ class Character:
                 right_up: self.IDLE,
                 left_up: self.IDLE,
                 j_down: self.JUMP_UP,
-                a_down: self.ATTACK_FIRE,
+                attack_ready: self.ATTACK_FIRE,
                 p_down: self.PARRY_HOLD,
             },
             # 위로 뜨는 중
             self.JUMP_UP: {
                 # 키를 뗐거나 시간 끝나서 do()에서 'JUMP_FALL' 이벤트 던지면 여기로 감
-                (lambda e: e[0] == 'JUMP_FALL'): self.JUMP_FALL
+                (lambda e: e[0] == 'JUMP_FALL'): self.JUMP_FALL,
+                attack_ready: self.ATTACK_FIRE
 
             },
             # 떨어지는 중
             self.JUMP_FALL: {
                 # 착지하면 Character.update()나 Jump_Fall.do()에서 ('LAND', None) 던짐
 
-                lambda e: e[0] == 'LAND': self.JUMP_LAND
+                lambda e: e[0] == 'LAND': self.JUMP_LAND,
+                attack_ready: self.ATTACK_FIRE
             },
             # 착지 애니 돌기
             self.JUMP_LAND: {
@@ -375,9 +396,9 @@ class Character:
                 time_out: self.IDLE
             },
             self.PARRY_HOLD: {
-                right_down: self.MOVE,
-                left_down: self.MOVE,
-                j_down: self.JUMP_UP,
+                attack_end_land: self.JUMP,  # 착지 모션/낙하 상태로 (JumpLand 쓰면 그걸로 교체)
+                attack_end_move: self.MOVE,
+                attack_end_idle: self.IDLE,
             },
         })
         pass
@@ -422,7 +443,7 @@ class Character:
             if now >= self.attack_fire_time:
                 self.is_attack_reserved = False
                 self.attack_fire_time = None
-                # 공중/지상 판단 (단순 판정: y가 바닥보다 높으면 공중으로 간주)
+                # 공중/지상 판단
                 air = getattr(self, 'y', 0) > getattr(self, 'ground_y', 0)
                 self.state_machine.handle_state_event(('ATTACK_READY', {'air': air}))
 
