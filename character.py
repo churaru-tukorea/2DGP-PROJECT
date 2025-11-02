@@ -178,13 +178,16 @@ class Jump_Land:
     def draw(self):
         now = get_time()
         STEP = 0.05
-        # 2~9까지만 돌자
         while now >= self.boy.next_jump_flip and self.boy.jump_frame < 9:
             self.boy.jump_frame += 1
             self.boy.next_jump_flip += STEP
 
         l, b, w, h = sprite[ACTION['jump_land']][self.boy.jump_frame]
-        self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
+        # 방향 적용
+        if self.boy.face_dir == 1:
+            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, 200, 200)
+        else:
+            self.boy.image.clip_composite_draw(l, b, w, h, 0, 'h', self.boy.x, self.boy.y, 200, 200)
 
         if self.boy.jump_frame == 9:
             self.boy.state_machine.handle_state_event(('TIMEOUT', None))
@@ -286,7 +289,6 @@ class Character:
         #테스트용
         self.draw_w = 200
         self.draw_h = 200
-
         # 캔버스 크기 받아두기
         self.canvas_h = get_canvas_height()
 
@@ -296,6 +298,9 @@ class Character:
         # 시작 y도 이걸로 맞춰놓자
         self.x, self.y = 400, self.ground_y
 
+        #좌우 눌려있나 확인하는
+        self.right_pressed = False
+        self.left_pressed = False
 
         #j가 눌려있는지 아닌지
         self.is_jump_key_pressed = False
@@ -337,6 +342,7 @@ class Character:
             # 위로 뜨는 중
             self.JUMP_UP: {
                 # 키를 뗐거나 시간 끝나서 do()에서 'JUMP_FALL' 이벤트 던지면 여기로 감
+                (lambda e: e[0] == 'JUMP_FALL'): self.JUMP_FALL
 
             },
             # 떨어지는 중
@@ -364,26 +370,29 @@ class Character:
         # 좌우 입력같은걸 다양하게 받을 것 같아서 그냥 여기에서 하는게...? 이게 최선인진 모르지만 그건 나중에.
         if event.type == SDL_KEYDOWN:
             if event.key == SDLK_RIGHT:
-                self.move_dir = +1
-                self.face_dir = +1
+                self.right_pressed = True
             elif event.key == SDLK_LEFT:
-                self.move_dir = -1
-                self.face_dir = -1
+                self.left_pressed = True
             elif event.key == SDLK_j:
                 self.is_jump_key_pressed = True
 
         elif event.type == SDL_KEYUP:
-            if event.key == SDLK_RIGHT and self.move_dir > 0:
-                self.move_dir = 0
-            elif event.key == SDLK_LEFT and self.move_dir < 0:
-                self.move_dir = 0
+            if event.key == SDLK_RIGHT:
+                self.right_pressed = False
+            elif event.key == SDLK_LEFT:
+                self.left_pressed = False
             elif event.key == SDLK_j:
                 self.is_jump_key_pressed = False
-                # 점프 중이면 떨어지는 상태로 가라고 이벤트 던져도 됨
+                # 점프 중이면 떨어지는 상태로 가라고 이벤트 던지기
                 self.state_machine.handle_state_event(('JUMP_FALL', None))
 
-        self.state_machine.handle_state_event(('INPUT', event))
+            # 여기서 항상 다시 계산
+        self._recalc_move_dir()
 
+        # 상태머신에도 그대로 넘김
+        self.state_machine.handle_state_event(('INPUT', event))
+        
+        
     def update(self):
         #생각해봤는데 상태랑 상관없이 무조건 매 프레임 돌아야 하는 애들은 그냥 한번에 여기서 계산하기로 하는게 편하지 않을까?d
         # dt 계산
@@ -412,3 +421,16 @@ class Character:
 
     def draw(self):
         self.state_machine.draw()
+
+    def _recalc_move_dir(self):
+        # 둘 중 하나만 눌린 경우
+        if self.right_pressed and not self.left_pressed:
+            self.move_dir = +1
+            self.face_dir = +1
+        elif self.left_pressed and not self.right_pressed:
+            self.move_dir = -1
+            self.face_dir = -1
+        else:
+            # 둘 다 누르거나 둘 다 뗀 경우
+            self.move_dir = 0
+            # face_dir은 그대로 두는 게 자연스러움
