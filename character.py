@@ -1,5 +1,5 @@
 from pico2d import load_image, get_time, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_RIGHT, SDLK_LEFT, SDLK_a
-from sdl2 import SDLK_j
+from sdl2 import SDLK_j, SDLK_p
 
 # 애니 좌표/액션 인덱스:
 from sprite_tuples import ACTION, sprite, sweat
@@ -40,12 +40,12 @@ def j_up(e):
     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_j
 
 #패링 시작 키
-def j_down(e):
-    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_j
+def p_down(e):
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_p
 
 #패링 마무리 키
-def j_up(e):
-    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_j
+def p_up(e):
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_p
 
 
 
@@ -209,12 +209,35 @@ class Character:
         self.ATTACK_FIRE = Attack_Fire(self)
         self.PARRY_HOLD = Parry_Hold(self)
 
-        self.state_machine = StateMachine(self.PARRY_HOLD, {
-            self.IDLE: {right_down:self.MOVE, left_down:self.MOVE, right_up:self.MOVE, left_up:self.MOVE},
-            self.MOVE: {right_down:self.MOVE, left_down:self.MOVE, right_up:self.MOVE, left_up:self.MOVE},
-            self.JUMP: {},
-            self.ATTACK_FIRE: {},
-            self.PARRY_HOLD: {}
+        self.state_machine = StateMachine(self.IDLE, {
+            self.IDLE: {
+                right_down: self.MOVE,
+                left_down: self.MOVE,
+                j_down: self.JUMP,
+                a_down: self.ATTACK_FIRE,
+                p_down: self.PARRY_HOLD,
+            },
+            self.MOVE: {
+                right_down: self.MOVE,
+                left_down: self.MOVE,
+                right_up: self.IDLE,
+                left_up: self.IDLE,
+                j_down: self.JUMP,
+                a_down: self.ATTACK_FIRE,
+                p_down: self.PARRY_HOLD,
+            },
+            self.JUMP: {
+                a_down: self.ATTACK_FIRE,  # 패링만 제외하고 공격 허용
+                # 점프 해제/낙하 등은 다음 단계에서 상태 내부로 가는게
+            },
+            self.ATTACK_FIRE: {
+                time_out: self.IDLE
+            },
+            self.PARRY_HOLD: {
+                right_down: self.MOVE,  # 이동/점프 입력 시 즉시 해제하고 전환
+                left_down: self.MOVE,
+                j_down: self.JUMP,
+            },
         })
         pass
 
