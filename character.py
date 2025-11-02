@@ -323,6 +323,7 @@ class Character:
         # 앞으로 필요할 상태용(타이머 같은것도 일단 있음)
         self.is_attack_reserved = False
         self.attack_fire_time = None
+
         self.signal_window_sec = 0.25
         self.parry_active_until = None
         self.parry_cooldown_until = None
@@ -401,13 +402,29 @@ class Character:
             self.is_jump_key_pressed = False
             self.state_machine.handle_state_event(('JUMP_FALL', None))
 
+        # 공격: 즉시 전이 X, 예약만 걸고 반환
+        if event.type == SDL_KEYDOWN and event.key == SDLK_a:
+            if not self.is_attack_reserved:
+                self.is_attack_reserved = True
+                self.attack_fire_time = get_time() + 3.0  # 3초 뒤 발동
+            return  # 공격은 상태머신에 바로 전달하지 않음
+
         # 나머지는 상태머신에 그대로 전달
         self.state_machine.handle_state_event(('INPUT', event))
         
         
     def update(self):
         #생각해봤는데 상태랑 상관없이 무조건 매 프레임 돌아야 하는 애들은 그냥 한번에 여기서 계산하기로 하는게 편하지 않을까?
-        # dt 계산
+
+        # 3초 예약 도달 체크
+        if self.is_attack_reserved and self.attack_fire_time is not None:
+            now = get_time()
+            if now >= self.attack_fire_time:
+                self.is_attack_reserved = False
+                self.attack_fire_time = None
+                # 공중/지상 판단 (단순 판정: y가 바닥보다 높으면 공중으로 간주)
+                air = getattr(self, 'y', 0) > getattr(self, 'ground_y', 0)
+                self.state_machine.handle_state_event(('ATTACK_READY', {'air': air}))
 
 
         now = get_time()
