@@ -2,6 +2,7 @@ from pico2d import *
 from character import Character
 import game_world
 from grass import Grass
+from sword import Sword
 
 running = True
 character = None
@@ -27,6 +28,8 @@ def init():
 
     global character
     global running
+    global sword
+
 
     running = True
 
@@ -35,6 +38,9 @@ def init():
 
     character = Character()
     game_world.add_object(character, 1)
+
+    sword = Sword(ground_y=character.ground_y)
+    game_world.add_object(sword, 2)
 
 
 def update():
