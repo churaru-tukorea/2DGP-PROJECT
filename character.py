@@ -189,7 +189,12 @@ class Jump_Land:
 
 
     def exit(self, event):
-        pass
+
+        if 2 <= self.boy.jump_frame <= 7:
+            now = get_time()
+            dt = now - self._last_time
+            self._last_time = now
+            self.boy.x += self.boy.face_dir * self._roll_speed * dt
 
     def do(self):
         pass
@@ -326,13 +331,13 @@ class Character:
         self.action = "idle"
 
         #테스트용
-        self.draw_w = 130
-        self.draw_h = 130
+        self.draw_w = 80
+        self.draw_h = 80
         # 캔버스 크기 받아두기
         self.canvas_h = get_canvas_height()
 
         # 지금은 스테이지가 없으니까, 그냥 창을 그거로 한다.
-        self.ground_y = 120   # 200이면 100
+        self.ground_y = 90   # 200이면 100
 
         # 시작 y도 이걸로 맞춰놓자
         self.x, self.y = 400, 150
