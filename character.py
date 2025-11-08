@@ -230,6 +230,7 @@ class Attack_Fire:
         self.boy.action = "attack_fire"
         self.boy.attack_frame = 0
         self._step = 1.0 / 15.0   # ~15fps
+        #self._step = 0.9  # ~15fps
         self._next = get_time() + self._step
         # 발동 순간의 공중 여부와 Y위치 저장해놓기
         self._from_air = bool(ev and isinstance(ev, tuple) and ev[1] and ev[1].get('air'))
@@ -260,7 +261,7 @@ class Attack_Fire:
         else:
             self.boy.image.clip_composite_draw(l, b, w, h, 0,'h', self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
 
-        if self.boy.attack_frame >= 6:  # 마지막 프레임
+        if self.boy.attack_frame >= 7:  # 마지막 프레임
             if self._from_air:
                 self.boy.state_machine.handle_state_event(('ATTACK_END_AIR', None))
             else:
@@ -274,7 +275,7 @@ class Parry_Hold:
         self.boy = boy
 
     def enter(self, state_event):
-        pass
+        self.boy.action = "parry_hold"
 
     def exit(self, event):
         pass
@@ -302,6 +303,8 @@ class Character:
 
         self.next_idle_flip = get_time() + 0.125  # idle을 넘기는 기준의 시간이 되어주는
 
+        self.shield_image = load_image('real_shield.png')  # 방패를
+        
         #애니메이션을 위한 변수들
         self.anim_frame = 0
         self.idle_timer = 0.0
@@ -517,6 +520,7 @@ class Character:
     def draw(self):
         self.state_machine.draw()
         self._draw_weapon_if_any()# 무기 그려야지
+        self._draw_shield_if_parry()
         self.draw_sweat_overlay() # 캐릭터 관련된걸 그리고 그 위에 땀방울을 그리는
 
     def draw_sweat_overlay(self):
@@ -605,6 +609,8 @@ class Character:
                 idx = self.move_frame
             elif act == 'attack_fire':
                 idx = self.attack_frame
+            elif act == 'parry_hold':
+                idx = 0
             else:
                 return None
             l, b, w, h = sprite[ACTION[act]][idx]
@@ -612,6 +618,9 @@ class Character:
 
     def _draw_weapon_if_any(self):
         if not self.weapon:
+            return
+
+        if getattr(self, 'action', None) == 'parry_hold':
             return
 
         cur = self._current_frame_info()
@@ -670,4 +679,46 @@ class Character:
         # 디버그: 손 지점 확인용 점
         draw_rectangle(hx - 2, hy - 2, hx + 2, hy + 2)
 
+    def _draw_shield_if_parry(self):
 
+        if getattr(self, 'action', None) != 'parry_hold':
+            return
+
+        cur = self._current_frame_info()  # (act, idx, (fw, fh)) 형식이어야 함
+        if not cur:
+            return
+        act, idx, (fw, fh) = cur
+
+        # ---- 값 박기 (네가 준 보정 그대로) ----
+        ox_src, oy_src = 20.47, 7.07  # 프레임 좌하단 기준 px
+        deg = -10.0  # 오른쪽 바라보기 기준 각도(도)
+
+        # ---- 출력 비율 보정 ----
+        sx = self.draw_w / float(fw)
+        sy = self.draw_h / float(fh)
+
+        # y는 좌우와 무관
+        hy = self.y - self.draw_h * 0.5 + oy_src * sy
+
+        # 좌우 반전 반영: x만 미러, 각도는 수평 미러에 맞게 θ' = 180 - θ
+        if self.face_dir == 1:  # 오른쪽
+            hx = self.x - self.draw_w * 0.5 + ox_src * sx
+            deg_prime = deg
+            flip = ''
+        else:  # 왼쪽
+            hx = self.x + self.draw_w * 0.5 - ox_src * sx
+            deg_prime = 180.0 - deg
+            flip = 'h'
+
+        # ---- 스케일 (너가 보기 좋게 맞춘 값 유지 원칙) ----
+        # 칼과 같은 기준으로 가도 되고, 필요하면 40~55 사이로만 살짝 조절
+        scale = self.draw_h / 30.0
+
+        img = self.shield_image
+        sw, sh = img.w, img.h
+        dw, dh = int(sw * scale), int(sh * scale)
+
+        rad = math.radians(deg_prime)
+
+        # 실드는 별도 피벗 없이, 주어진 손 좌표에 바로 그린다 (요청대로 단순화)
+        img.clip_composite_draw(0, 0, sw, sh, rad, flip, hx, hy, dw, dh)
