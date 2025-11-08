@@ -1,7 +1,7 @@
 from pico2d import *
 from character import Character
 import game_world
-
+from grass import Grass
 
 running = True
 character = None
@@ -30,6 +30,8 @@ def init():
 
     running = True
 
+    grass = Grass()
+    game_world.add_object(grass, 0)
 
     character = Character()
     game_world.add_object(character, 1)

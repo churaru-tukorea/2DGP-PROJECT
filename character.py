@@ -326,13 +326,13 @@ class Character:
         self.action = "idle"
 
         #테스트용
-        self.draw_w = 150
-        self.draw_h = 150
+        self.draw_w = 130
+        self.draw_h = 130
         # 캔버스 크기 받아두기
         self.canvas_h = get_canvas_height()
 
         # 지금은 스테이지가 없으니까, 그냥 창을 그거로 한다.
-        self.ground_y = 150   # 200이면 100
+        self.ground_y = 120   # 200이면 100
 
         # 시작 y도 이걸로 맞춰놓자
         self.x, self.y = 400, 150
