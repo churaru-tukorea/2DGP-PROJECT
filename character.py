@@ -1,6 +1,6 @@
 from pico2d import load_image, get_time, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_RIGHT, SDLK_LEFT, SDLK_a, \
     get_canvas_height, draw_rectangle
-from sdl2 import SDLK_j, SDLK_p
+from sdl2 import SDLK_j, SDLK_p, SDLK_k
 
 # 애니 좌표/액션 인덱스:
 from sprite_tuples import ACTION, sprite, sweat
@@ -37,8 +37,8 @@ def left_up(e):
     return e[0] == 'INPUT' and e[1].type == SDL_KEYUP and e[1].key == SDLK_LEFT
 
 #공격 키
-def a_down(e):
-    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_a
+def k_down(e):
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_k
 
 #점프 시작 키
 def j_down(e):
@@ -684,23 +684,21 @@ class Character:
         if getattr(self, 'action', None) != 'parry_hold':
             return
 
-        cur = self._current_frame_info()  # (act, idx, (fw, fh)) 형식이어야 함
+        cur = self._current_frame_info()
         if not cur:
             return
         act, idx, (fw, fh) = cur
 
-        # ---- 값 박기 (네가 준 보정 그대로) ----
-        ox_src, oy_src = 20.47, 7.07  # 프레임 좌하단 기준 px
-        deg = -10.0  # 오른쪽 바라보기 기준 각도(도)
+        ox_src, oy_src = 21.47, 9.07
+        deg = 0.0
 
-        # ---- 출력 비율 보정 ----
         sx = self.draw_w / float(fw)
         sy = self.draw_h / float(fh)
 
         # y는 좌우와 무관
         hy = self.y - self.draw_h * 0.5 + oy_src * sy
 
-        # 좌우 반전 반영: x만 미러, 각도는 수평 미러에 맞게 θ' = 180 - θ
+
         if self.face_dir == 1:  # 오른쪽
             hx = self.x - self.draw_w * 0.5 + ox_src * sx
             deg_prime = deg
@@ -710,8 +708,6 @@ class Character:
             deg_prime = 180.0 - deg
             flip = 'h'
 
-        # ---- 스케일 (너가 보기 좋게 맞춘 값 유지 원칙) ----
-        # 칼과 같은 기준으로 가도 되고, 필요하면 40~55 사이로만 살짝 조절
         scale = self.draw_h / 30.0
 
         img = self.shield_image
@@ -720,5 +716,5 @@ class Character:
 
         rad = math.radians(deg_prime)
 
-        # 실드는 별도 피벗 없이, 주어진 손 좌표에 바로 그린다 (요청대로 단순화)
+
         img.clip_composite_draw(0, 0, sw, sh, rad, flip, hx, hy, dw, dh)
