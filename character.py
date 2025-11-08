@@ -495,7 +495,7 @@ class Character:
             self.state_machine.handle_state_event(('JUMP_FALL', None))
 
         # 공격: 즉시 전이 X, 예약만 걸고 반환
-        if event.type == SDL_KEYDOWN and event.key == SDLK_a:
+        if event.type == SDL_KEYDOWN and event.key == SDLK_k:
             if not self.is_attack_reserved:
                 self.is_attack_reserved = True
                 self.attack_fire_time = get_time() + 3.0  # 3초 뒤 발동
