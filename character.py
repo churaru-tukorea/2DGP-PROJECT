@@ -649,10 +649,10 @@ class Character:
 
         hy = self.y - self.draw_h * 0.5 + oy_src * sy
 
-        # 4) 검 이미지 스케일(몸 높이 비례) + 피벗 보정
+
         img = self.weapon.image  # real_sword.png (15x31)
         sw, sh = img.w, img.h
-        scale = self.draw_h / 80.0  # 기존 로직 유지(몸 H=80일 때 1.0배)
+        scale = self.draw_h / 50.0
         dw, dh = int(sw * scale), int(sh * scale)
 
         dx, dy = PIVOT_FROM_CENTER_PX  # 검 '센터'→'손잡이' 벡터(px)
