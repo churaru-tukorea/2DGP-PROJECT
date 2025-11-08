@@ -579,8 +579,8 @@ class Character:
             return self.x - halfw, self.y - halfh, self.x + halfw, self.y + halfh
 
     def handle_collision(self, group, other):
-            if group == 'char:sword' and self.equipped is None and other.state == 'GROUND':
-                self.pickup_sword(other)
+        if group == 'char:sword' and self.weapon is None and getattr(other, 'state', '') == 'GROUND':
+            self.pickup_sword(other)
 
     def pickup_sword(self, sword):
             if self.weapon:  # 이미 들고 있으면 무시

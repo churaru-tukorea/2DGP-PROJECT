@@ -75,9 +75,10 @@ def handle_collisions():
     for group, pairs in collision_pairs.items():
         for a in pairs[0]:
             for b in pairs[1]:
-              if collide(a, b):
-                a.handle_collision(group, b)
-                b.handle_collision(group, a)
+                if collide(a, b):
+                    print(f'COLLIDE[{group}] {a} <-> {b}')
+                    a.handle_collision(group, b)
+                    b.handle_collision(group, a)
 
 #내가 보낸 그룹 안에 있는 그걸 지워버리는
 def remove_collision_object_once(self, group):

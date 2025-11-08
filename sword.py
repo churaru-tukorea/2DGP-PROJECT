@@ -31,8 +31,11 @@ class Sword:
     def get_bb(self):
         if self.state != 'GROUND':
             return -9999,-9999,-9998,-9998
-        half = self.draw_w*0.5
-        return self.x-half, self.ground_y, self.x+half, self.ground_y+self.draw_h-12
+        half_w = self.draw_w * 0.5
+        half_h = self.draw_h * 0.5
+
+        return self.x - half_w, self.y - half_h, self.x + half_w, self.y + half_h
+
     def handle_collision(self, group, other):
         if group == 'char:sword' and self.state == 'GROUND':
             print('캐릭터가 검을 주웠습니다!')
