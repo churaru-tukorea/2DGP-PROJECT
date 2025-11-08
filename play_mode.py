@@ -43,7 +43,9 @@ def init():
     character = Character()
     game_world.add_object(character, 1)
 
-
+#플레이어가 검을 먹는 그걸 하려고.
+    game_world.add_collision_pair('char:sword', character, None)
+    game_world.add_collision_pair('char:sword', None, sword)
 
 
 def update():

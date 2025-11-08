@@ -563,3 +563,19 @@ class Character:
         # 땀방울은 좌우 반전 없이 위치만 반대로 (대칭 이미지)
         self.image.clip_draw(sl, sb, sw, sh, sx, sy, sdw, sdh)
 
+        def get_bb(self):
+            halfw = self.draw_w // 2
+            halfh = self.draw_h // 2
+            return self.x - halfw, self.y - halfh, self.x + halfw, self.y + halfh
+
+        def handle_collision(self, group, other):
+            if group == 'char:sword' and self.equipped is None and other.state == 'GROUND':
+                self.pickup_sword(other)
+
+        def pickup_sword(self, sword):
+            sword.state = 'EQUIPPED'
+            game_world.remove_object(sword)  # 월드에서 제거(충돌 리스트에서도 빠짐)
+            self.equipped = sword
+            # 아래 S2에서 정의할 부착 시스템으로 등록
+            self.attach_sword(sword)
+

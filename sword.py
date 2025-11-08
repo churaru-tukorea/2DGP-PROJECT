@@ -15,6 +15,8 @@ class Sword:
         self.draw_w = 20  # 화면에 보이는 폭
         self.draw_h = 80  # 화면에 보이는 높이
 
+        self.state = 'GROUND'
+
     def update(self):
         pass
 
@@ -24,7 +26,11 @@ class Sword:
         self.image.clip_composite_draw(0, 0, self.image.w, self.image.h, math.pi, '',  self.x, y,  self.draw_w, self.draw_h )
 
     def get_bb(self):
-        pass
+        if self.state == 'GROUND':
+            halfw = self.draw_w // 2
+            bottom = self.ground_y
+            top = bottom + self.draw_h - self.embed_px
+            return self.x - halfw, bottom, self.x + halfw, top
 
     def handle_collision(self, group, other):
         pass
