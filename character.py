@@ -339,6 +339,9 @@ class Character:
         # 지금은 스테이지가 없으니까, 그냥 창을 그거로 한다.
         self.ground_y = 90   # 200이면 100
 
+        self.equipped = None
+        self.attachments = []   # 나중에 검 말고 다른것도 할 예정이니까 이걸로 관리
+
         # 시작 y도 이걸로 맞춰놓자
         self.x, self.y = 400, 150
 
@@ -364,6 +367,7 @@ class Character:
         self.JUMP_LAND = Jump_Land(self)
         self.ATTACK_FIRE = Attack_Fire(self)
         self.PARRY_HOLD = Parry_Hold(self)
+
 
         self.state_machine = StateMachine(self.IDLE, {
             self.IDLE: {
