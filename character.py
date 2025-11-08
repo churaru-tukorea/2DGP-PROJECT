@@ -7,7 +7,7 @@ from sdl2 import SDLK_j, SDLK_p, SDLK_k
 
 from pico2d import (SDL_KEYDOWN, SDL_KEYUP,
                     SDLK_LEFT, SDLK_RIGHT, SDLK_j, SDLK_k, SDLK_p,
-                    SDLK_a, SDLK_d, SDLK_1, SDLK_2, SDLK_3) # 2p키까지 감안해서 그냥 한번에 해버리기
+                    SDLK_a, SDLK_d, SDLK_KP_1, SDLK_KP_2, SDLK_KP_3) # 2p키까지 감안해서 그냥 한번에 해버리기
 # 애니 좌표/액션 인덱스:
 from sprite_tuples import ACTION, sprite, sweat
 from state_machine import StateMachine
@@ -255,7 +255,7 @@ class Attack_Fire:
         self.boy.y = self._anchor_y
 
         # 프레임 진행
-        while now >= self._next and self.boy.attack_frame < 6:
+        while now >= self._next and self.boy.attack_frame < 7:
             self.boy.attack_frame += 1
             self._next += self._step
 
@@ -267,7 +267,7 @@ class Attack_Fire:
         else:
             self.boy.image.clip_composite_draw(l, b, w, h, 0,'h', self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
 
-        if self.boy.attack_frame >= 7:  # 마지막 프레임
+        if self.boy.attack_frame >= 6:  # 마지막 프레임
             if self._from_air:
                 self.boy.state_machine.handle_state_event(('ATTACK_END_AIR', None))
             else:
@@ -323,9 +323,9 @@ class Character:
 
                     'left':  [SDLK_LEFT],
                     'right': [SDLK_RIGHT],
-                    'jump':  [SDLK_1],
-                    'attack':[SDLK_2],
-                    'parry': [SDLK_3],
+                    'jump':  [SDLK_KP_1],
+                    'attack':[SDLK_KP_2],
+                    'parry': [SDLK_KP_3],
                 }
         else:
             self.keymap = keymap
