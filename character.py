@@ -303,12 +303,13 @@ class Character:
     def __init__(self, pid=1, keymap=None):
         self.x, self.y = 400, 150 # 이건 그냥 띄워보려는 거니까 일단 임의위치 위에 띄우려는
         self.pid = pid
-        self.face_dir = +1
+
         self.move_dir = 0
         self.image = load_image('project_character_sheet.png')
 
         if keymap is None:
             if pid == 1:
+                self.face_dir = +1
                 self.keymap = {
                     'left':  [SDLK_a],
                     'right': [SDLK_d],
@@ -351,7 +352,7 @@ class Character:
         self.next_attack_flip = get_time() + (1.0 / 15.0)
 
         # 방향, move 말고도 jump도 해당 방향으로 뛰고 공격도 해당 방향으로 하니까 여기에서 만들고 다룸.
-        self.face_dir = +1
+        #self.face_dir = +1
         self.move_dir = 0  # -1: 왼쪽, 0: 안 움직임, +1: 오른쪽
 
         # 물리
