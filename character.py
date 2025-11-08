@@ -614,12 +614,12 @@ class Character:
         if not self.weapon:
             return
 
-        cur = self._current_frame_info()  # (act, idx, (fw, fh)) 반환
+        cur = self._current_frame_info()
         if not cur:
             return
         act, idx, (fw, fh) = cur
 
-        # 1) 프레임별 값 가져오기
+
         lst = POSE.get(act)
         if not lst or idx >= len(lst):
             return
@@ -630,11 +630,11 @@ class Character:
         ox_src, oy_src = pose['offset_src_px']
         deg = pose['deg']
 
-        # 2) 원본 → 화면 스케일
+
         sx = self.draw_w / float(fw)
         sy = self.draw_h / float(fh)
 
-        # 3) 좌우 반전 포함 손 위치 계산 (프레임 좌하단 기준)
+
         if self.face_dir == 1:
             hx = self.x - self.draw_w * 0.5 + ox_src * sx
             deg_prime, flip = deg, ''
