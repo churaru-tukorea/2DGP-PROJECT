@@ -10,12 +10,12 @@ class Sword:
         cw = get_canvas_width()
         self.x = x if x is not None else random.randint(40, cw - 40)
 
-        self.ground_y = 50
+        self.ground_y = ground_y
         self.embed_px = 10  # 땅에 박힌 깊이
         self.draw_w = 20  # 화면에 보이는 폭
         self.draw_h = 80  # 화면에 보이는 높이
 
-        self.y = ground_y + self.draw_h * 0.5
+        self.y = self.ground_y + (self.draw_h - self.embed_px) * 0.5
         self.state = 'GROUND'
 
     def update(self):
@@ -39,4 +39,3 @@ class Sword:
     def handle_collision(self, group, other):
         if group == 'char:sword' and self.state == 'GROUND':
             print('캐릭터가 검을 주웠습니다!')
-            other.pickup_sword(self)  # 캐릭터에서 장착 처리

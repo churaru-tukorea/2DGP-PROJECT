@@ -585,10 +585,14 @@ class Character:
     def pickup_sword(self, sword):
             if self.weapon:  # 이미 들고 있으면 무시
                 return
-            sword.set_equipped()
+            #sword.set_equipped()
             self.weapon = sword
             import game_world
             game_world.remove_object(sword)  # 월드에서 빼기(바닥용 충돌 제거)
+
+   # def set_equipped(self, owner=None):
+    #    self.equipped = 'EQUIPPED'
+     #   self.owner = owner
 
     def _current_frame_info(self):
             act = self.action  # 'idle','move','attack_fire', ...
@@ -625,7 +629,7 @@ class Character:
 
         # 4) 검 이미지 스케일/피벗 보정
         img = self.weapon.image
-        sw, sh = img.w, img.h
+        sw, sh = img.w*2, img.h*2
         scale = H / 80.0  # 몸 크기에 맞춘 상대 스케일(튜닝)
         dw, dh = int(sw * scale), int(sh * scale)
 
