@@ -6,6 +6,7 @@ from sdl2 import SDLK_j, SDLK_p
 from sprite_tuples import ACTION, sprite, sweat
 from state_machine import StateMachine
 from anchors import ANCHOR, load_csv
+import math
 
 # 공격의 여러 상태를 추가(이게 공격 이후 어떤상태에 갈지도 다 다르기 떄무네)
 def attack_ready(e):      return e[0] == 'ATTACK_READY'
@@ -572,16 +573,16 @@ class Character:
         # 땀방울은 좌우 반전 없이 위치만 반대로 (대칭 이미지)
         self.image.clip_draw(sl, sb, sw, sh, sx, sy, sdw, sdh)
 
-        def get_bb(self):
+    def get_bb(self):
             halfw = self.draw_w // 2
             halfh = self.draw_h // 2
             return self.x - halfw, self.y - halfh, self.x + halfw, self.y + halfh
 
-        def handle_collision(self, group, other):
+    def handle_collision(self, group, other):
             if group == 'char:sword' and self.equipped is None and other.state == 'GROUND':
                 self.pickup_sword(other)
 
-        def pickup_sword(self, sword):
+    def pickup_sword(self, sword):
             if self.weapon:  # 이미 들고 있으면 무시
                 return
             sword.set_equipped()
@@ -589,7 +590,7 @@ class Character:
             import game_world
             game_world.remove_object(sword)  # 월드에서 빼기(바닥용 충돌 제거)
 
-        def _current_frame_info(self):
+    def _current_frame_info(self):
             act = self.action  # 'idle','move','attack_fire', ...
             if act == 'idle':
                 idx = self.anim_frame
@@ -603,6 +604,41 @@ class Character:
             return act, idx, (w, h)
 
     def _draw_weapon_if_any(self):
-        pass
+        if not self.weapon: return
+        info = self._current_frame_info()
+        if not info: return
+        act, idx, (w, h) = info
+
+        # 1) CSV에서 (u,v,deg) 조회 — 없으면 스킵
+        table = ANCHOR.get(act, {})
+        if idx not in table: return
+        u, v, deg = table[idx]
+
+        # 2) 좌/우 반영
+        u_prime = u if self.face_dir == 1 else (1.0 - u)
+        deg_prime = deg if self.face_dir == 1 else -deg
+
+        # 3) 프레임 로컬 비율 → 화면 좌표 (몸 드로우 크기 W,H)
+        W, H = self.draw_w, self.draw_h
+        hx = self.x - W * 0.5 + u_prime * W
+        hy = self.y - H * 0.5 + v * H
+
+        # 4) 검 이미지 스케일/피벗 보정
+        img = self.weapon.image
+        sw, sh = img.w, img.h
+        scale = H / 80.0  # 몸 크기에 맞춘 상대 스케일(튜닝)
+        dw, dh = int(sw * scale), int(sh * scale)
+
+        dx, dy = self.weapon_pivot_px  # 이미지 중심 기준 오프셋(픽셀)
+        dx *= scale;
+        dy *= scale
+        rad = math.radians(deg_prime)
+        rx = dx * math.cos(rad) - dy * math.sin(rad)
+        ry = dx * math.sin(rad) + dy * math.cos(rad)
+
+        cx = hx + rx
+        cy = hy + ry
+        flip = 'h' if self.face_dir == -1 else ''
+        img.clip_composite_draw(0, 0, sw, sh, rad, flip, cx, cy, dw, dh)
 
 
