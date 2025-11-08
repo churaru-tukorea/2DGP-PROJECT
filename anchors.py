@@ -3,7 +3,7 @@ import csv
 # 필요한 액션만: idle(2프), move(10프), attack_fire(7프)
 ANCHOR = { 'idle': {}, 'move': {}, 'attack_fire': {} }
 
-def load_csv(path='anchor_firstpass_shoulder.csv'):
+def load_csv(path='anchor_from_sword_sheet.csv'):
     with open(path, newline='', encoding='utf-8') as f:
         for row in csv.DictReader(f):
             act = row['action'].strip()

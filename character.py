@@ -343,7 +343,7 @@ class Character:
         # 지금은 스테이지가 없으니까, 그냥 창을 그거로 한다.
         self.ground_y = 90   # 200이면 100
 
-        load_csv('anchor_firstpass_shoulder.csv')  # CSV 로드
+        load_csv('anchor_from_sword_sheet.csv')
         self.weapon = None
         self.equipped = None
         self.attachments = []   # 나중에 검 말고 다른것도 할 예정이니까 이걸로 관리
@@ -620,30 +620,7 @@ class Character:
         if idx not in table: return
         u, v, deg = table[idx]
 
-        # 2) 좌/우 반영
-        u_prime = u if self.face_dir == 1 else (1.0 - u)
-        deg_prime = deg if self.face_dir == 1 else -deg
 
-        # 3) 프레임 로컬 비율 → 화면 좌표 (몸 드로우 크기 W,H)
-        W, H = self.draw_w, self.draw_h
-        hx = self.x - W * 0.5 + u_prime * W
-        hy = self.y - H * 0.5 + v * H
-
-        # 4) 검 이미지 스케일/피벗 보정
-        img = self.weapon.image
-        sw, sh = img.w*2, img.h*2
-        scale = H / 80.0  # 몸 크기에 맞춘 상대 스케일(튜닝)
-        dw, dh = int(sw * scale), int(sh * scale)
-
-        dx, dy = self.weapon_pivot_px  # 이미지 중심 기준 오프셋(픽셀)
-        dx *= scale;
-        dy *= scale
-        rad = math.radians(deg_prime)
-        rx = dx * math.cos(rad) - dy * math.sin(rad)
-        ry = dx * math.sin(rad) + dy * math.cos(rad)
-
-        cx = hx + rx
-        cy = hy + ry
         u_prime = u if self.face_dir == 1 else (1.0 - u)
         if self.face_dir == 1:
             deg_prime = deg
@@ -659,6 +636,28 @@ class Character:
             else:  # "ADD_PI"
                 deg_prime = deg + 180  # ← 180도 보정 + 플립
                 flip = 'h'
+
+        # 3) 프레임 로컬 비율 → 화면 좌표 (몸 드로우 크기 W,H)
+        W, H = self.draw_w, self.draw_h
+        hx = self.x - W * 0.5 + u_prime * W
+        hy = self.y - H * 0.5 + v * H
+
+        # 4) 검 이미지 스케일/피벗 보정
+        img = self.weapon.image
+        sw, sh = img.w, img.h
+        scale = H / 80.0  # 몸 크기에 맞춘 상대 스케일(튜닝)
+        dw, dh = int(sw * scale), int(sh * scale)
+
+        dx, dy = self.weapon_pivot_px  # 이미지 중심 기준 오프셋(픽셀)
+        dx *= scale
+        dy *= scale
+        rad = math.radians(deg_prime)
+        rx = dx * math.cos(rad) - dy * math.sin(rad)
+        ry = dx * math.sin(rad) + dy * math.cos(rad)
+
+        cx = hx + rx
+        cy = hy + ry
+
         img.clip_composite_draw(0, 0, sw, sh, rad, flip, cx, cy, dw, dh)
         draw_rectangle(hx - 2, hy - 2, hx + 2, hy + 2)  # 손 위치가 이상해서 좀 확인해봐야
 
