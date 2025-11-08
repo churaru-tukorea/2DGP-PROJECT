@@ -1,25 +1,11 @@
 
 from sprite_tuples import ACTION, sprite
 
-LEFT_FLIP_RULE = 'ADD_PI'        # 'NEGATE' | 'KEEP' | 'ADD_PI' 중 선택
-PIVOT_FROM_CENTER_PX = (-1.0, -13.5)  # real_sword(15x31) 기준 손잡이 위치(센터 기준 px)
-
-def _len(action_name: str) -> int:
-    return len(sprite[ACTION[action_name]])
-
-def _empty(action_name: str):
-    return [None] * _len(action_name)
+LEFT_FLIP_RULE = 'ADD_PI'
+PIVOT_FROM_CENTER_PX = (-1.0, -13.5)
 
 POSE = {
-    'idle':        _empty('idle'),        # 2프
-    'move':        _empty('move'),        # 10프
-    'attack_fire': _empty('attack_fire'), # 7프
+    'idle': [{'offset_src_px': (17.47, 7.07), 'deg': 70.0}, {'offset_src_px': (17.47, 7.07), 'deg': 70.0}],
+    'move': [{'offset_src_px': (18.75, 9.81), 'deg': 62.0}, {'offset_src_px': (17.79, 7.86), 'deg': 62.0}, {'offset_src_px': (16.86, 6.86), 'deg': 62.0}, {'offset_src_px': (15.0, 8.22), 'deg': 62.0}, {'offset_src_px': (15.0, 8.04), 'deg': 62.0}, {'offset_src_px': (18.83, 6.42), 'deg': 62.0}, {'offset_src_px': (17.33, 6.67), 'deg': 62.0}, {'offset_src_px': (16.92, 6.58), 'deg': 62.0}, {'offset_src_px': (16.85, 7.38), 'deg': 62.0}, {'offset_src_px': (17.83, 7.92), 'deg': 62.0}],
+    'attack_fire': [{'offset_src_px': (21.45, 8.82), 'deg': 30.0}, {'offset_src_px': (18.27, 9.47), 'deg': 30.0}, {'offset_src_px': (18.5, 8.44), 'deg': 30.0}, {'offset_src_px': (20.5, 8.44), 'deg': 30.0}, {'offset_src_px': (23.93, 14.47), 'deg': 30.0}, {'offset_src_px': (17.67, 8.67), 'deg': 30.0}, {'offset_src_px': (17.67, 8.67), 'deg': 30.0}],
 }
-
-# ====== 예시(샘플) ======
-# idle 0,1 프레임에 동일 값 사용 예시 — 네가 직접 측정해서 숫자만 바꾸면 됨
-POSE['idle'][0] = {'offset_src_px': (14, 29), 'deg': -25}
-POSE['idle'][1] = {'offset_src_px': (14, 29), 'deg': -25}
-
-# 사용법: POSE['attack_fire'][0] = {'offset_src_px': (16, 27), 'deg': -60}
-# 없는 프레임(None)은 검을 안 그림

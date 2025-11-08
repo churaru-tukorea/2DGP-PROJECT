@@ -5,10 +5,9 @@ from sdl2 import SDLK_j, SDLK_p
 # 애니 좌표/액션 인덱스:
 from sprite_tuples import ACTION, sprite, sweat
 from state_machine import StateMachine
-from anchors import ANCHOR, load_csv
 import math
 
-from sword_poses import PIVOT_FROM_CENTER_PX
+from sword_poses import POSE, LEFT_FLIP_RULE, PIVOT_FROM_CENTER_PX
 
 
 # 공격의 여러 상태를 추가(이게 공격 이후 어떤상태에 갈지도 다 다르기 떄무네)
@@ -57,8 +56,7 @@ def p_down(e):
 def p_up(e):
     return e[0] == 'INPUT' and e[1].type == SDL_KEYUP and e[1].key == SDLK_p
 
-LEFT_FLIP_RULE = "NEGATE"
-PIVOT = [0.0, -11.0]  # 시작값(픽셀). 오른손잡이 손잡이 중심
+
 
 
 class Idle:
@@ -346,11 +344,11 @@ class Character:
         # 지금은 스테이지가 없으니까, 그냥 창을 그거로 한다.
         self.ground_y = 90   # 200이면 100
 
-        load_csv('anchor_from_sword_sheet.csv')
+
         self.weapon = None
         self.equipped = None
         self.attachments = []   # 나중에 검 말고 다른것도 할 예정이니까 이걸로 관리
-        self.weapon_pivot_px = (0.0, -11.0)
+
 
         # 시작 y도 이걸로 맞춰놓자
         self.x, self.y = 400, 150
