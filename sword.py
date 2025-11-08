@@ -15,8 +15,7 @@ class Sword:
         self.draw_w = 20  # 화면에 보이는 폭
         self.draw_h = 80  # 화면에 보이는 높이
 
-        self.y = ground_y + self.draw_h * 0.5 - 10   # 땅에 꽂힌 느낌
-
+        self.y = ground_y + self.draw_h * 0.5
         self.state = 'GROUND'
 
     def update(self):
@@ -35,4 +34,6 @@ class Sword:
         half = self.draw_w*0.5
         return self.x-half, self.ground_y, self.x+half, self.ground_y+self.draw_h-12
     def handle_collision(self, group, other):
-        pass
+        if group == 'char:sword' and self.state == 'GROUND':
+            print('캐릭터가 검을 주웠습니다!')
+            other.pickup_sword(self)  # 캐릭터에서 장착 처리
