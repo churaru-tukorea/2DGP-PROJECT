@@ -1,5 +1,5 @@
 from pico2d import load_image, get_time, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_RIGHT, SDLK_LEFT, SDLK_a, \
-    get_canvas_height
+    get_canvas_height, draw_rectangle
 from sdl2 import SDLK_j, SDLK_p
 
 # 애니 좌표/액션 인덱스:
@@ -54,6 +54,8 @@ def p_down(e):
 def p_up(e):
     return e[0] == 'INPUT' and e[1].type == SDL_KEYUP and e[1].key == SDLK_p
 
+LEFT_FLIP_RULE = "NEGATE"
+PIVOT = [0.0, -11.0]  # 시작값(픽셀). 오른손잡이 손잡이 중심
 
 
 class Idle:
@@ -642,7 +644,22 @@ class Character:
 
         cx = hx + rx
         cy = hy + ry
-        flip = 'h' if self.face_dir == -1 else ''
+        u_prime = u if self.face_dir == 1 else (1.0 - u)
+        if self.face_dir == 1:
+            deg_prime = deg
+            flip = ''
+        else:
+            # 세 가지 모드 중 하나만 선택
+            if LEFT_FLIP_RULE == "NEGATE":
+                deg_prime = -deg  # ← 기존 네 방식
+                flip = 'h'
+            elif LEFT_FLIP_RULE == "KEEP":
+                deg_prime = deg  # ← 각도 유지 + 플립만
+                flip = 'h'
+            else:  # "ADD_PI"
+                deg_prime = deg + 180  # ← 180도 보정 + 플립
+                flip = 'h'
         img.clip_composite_draw(0, 0, sw, sh, rad, flip, cx, cy, dw, dh)
+        draw_rectangle(hx - 2, hy - 2, hx + 2, hy + 2)  # 손 위치가 이상해서 좀 확인해봐야
 
 
