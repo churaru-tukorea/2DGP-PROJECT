@@ -33,14 +33,17 @@ def init():
 
     running = True
 
+
+    sword = Sword(0)
+    game_world.add_object(sword, 0)
+
     grass = Grass()
     game_world.add_object(grass, 0)
 
     character = Character()
     game_world.add_object(character, 1)
 
-    sword = Sword(ground_y=character.ground_y)
-    game_world.add_object(sword, 2)
+
 
 
 def update():
