@@ -227,6 +227,7 @@ class Attack_Fire:
 
     def enter(self, ev=None):
         # 애니 초기화
+        self.boy.action = "attack_fire"
         self.boy.attack_frame = 0
         self._step = 1.0 / 15.0   # ~15fps
         self._next = get_time() + self._step
@@ -259,7 +260,6 @@ class Attack_Fire:
         else:
             self.boy.image.clip_composite_draw(l, b, w, h, 0,'h', self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
 
-        # 원샷 종료 시점에 복귀 이벤트 발송
         if self.boy.attack_frame >= 6:  # 마지막 프레임
             if self._from_air:
                 self.boy.state_machine.handle_state_event(('ATTACK_END_AIR', None))
