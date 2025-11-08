@@ -284,7 +284,7 @@ class Parry_Hold:
 
 class Character:
     def __init__(self, pid=1):
-        self.x, self.y = 400, 90 # 이건 그냥 띄워보려는 거니까 일단 임의위치 위에 띄우려는
+        self.x, self.y = 400, 150 # 이건 그냥 띄워보려는 거니까 일단 임의위치 위에 띄우려는
         self.pid = pid
         self.face_dir = +1
         self.move_dir = 0
@@ -326,16 +326,16 @@ class Character:
         self.action = "idle"
 
         #테스트용
-        self.draw_w = 200
-        self.draw_h = 200
+        self.draw_w = 150
+        self.draw_h = 150
         # 캔버스 크기 받아두기
         self.canvas_h = get_canvas_height()
 
         # 지금은 스테이지가 없으니까, 그냥 창을 그거로 한다.
-        self.ground_y = self.draw_h // 2   # 200이면 100
+        self.ground_y = 150   # 200이면 100
 
         # 시작 y도 이걸로 맞춰놓자
-        self.x, self.y = 400, self.ground_y
+        self.x, self.y = 400, 150
 
         #좌우 눌려있나 확인하는
         self.right_pressed = False
