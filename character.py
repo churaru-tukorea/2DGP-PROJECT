@@ -8,6 +8,9 @@ from state_machine import StateMachine
 from anchors import ANCHOR, load_csv
 import math
 
+from sword_poses import PIVOT_FROM_CENTER_PX
+
+
 # 공격의 여러 상태를 추가(이게 공격 이후 어떤상태에 갈지도 다 다르기 떄무네)
 def attack_ready(e):      return e[0] == 'ATTACK_READY'
 def attack_end_air(e):   return e[0] == 'ATTACK_END_AIR'
@@ -610,45 +613,51 @@ class Character:
             return act, idx, (w, h)
 
     def _draw_weapon_if_any(self):
-        if not self.weapon: return
-        info = self._current_frame_info()
-        if not info: return
-        act, idx, (w, h) = info
+        if not self.weapon:
+            return
 
-        # 1) CSV에서 (u,v,deg) 조회 — 없으면 스킵
-        table = ANCHOR.get(act, {})
-        if idx not in table: return
-        u, v, deg = table[idx]
+        cur = self._current_frame_info()  # (act, idx, (fw, fh)) 반환
+        if not cur:
+            return
+        act, idx, (fw, fh) = cur
 
+        # 1) 프레임별 값 가져오기
+        lst = POSE.get(act)
+        if not lst or idx >= len(lst):
+            return
+        pose = lst[idx]
+        if not pose:
+            return
 
-        u_prime = u if self.face_dir == 1 else (1.0 - u)
+        ox_src, oy_src = pose['offset_src_px']
+        deg = pose['deg']
+
+        # 2) 원본 → 화면 스케일
+        sx = self.draw_w / float(fw)
+        sy = self.draw_h / float(fh)
+
+        # 3) 좌우 반전 포함 손 위치 계산 (프레임 좌하단 기준)
         if self.face_dir == 1:
-            deg_prime = deg
-            flip = ''
+            hx = self.x - self.draw_w * 0.5 + ox_src * sx
+            deg_prime, flip = deg, ''
         else:
-            # 세 가지 모드 중 하나만 선택
-            if LEFT_FLIP_RULE == "NEGATE":
-                deg_prime = -deg  # ← 기존 네 방식
-                flip = 'h'
-            elif LEFT_FLIP_RULE == "KEEP":
-                deg_prime = deg  # ← 각도 유지 + 플립만
-                flip = 'h'
-            else:  # "ADD_PI"
-                deg_prime = deg + 180  # ← 180도 보정 + 플립
-                flip = 'h'
+            hx = self.x + self.draw_w * 0.5 - ox_src * sx  # 좌우 미러
+            if LEFT_FLIP_RULE == 'NEGATE':
+                deg_prime, flip = -deg, 'h'
+            elif LEFT_FLIP_RULE == 'KEEP':
+                deg_prime, flip = deg, 'h'
+            else:  # 'ADD_PI'
+                deg_prime, flip = deg + 180.0, 'h'
 
-        # 3) 프레임 로컬 비율 → 화면 좌표 (몸 드로우 크기 W,H)
-        W, H = self.draw_w, self.draw_h
-        hx = self.x - W * 0.5 + u_prime * W
-        hy = self.y - H * 0.5 + v * H
+        hy = self.y - self.draw_h * 0.5 + oy_src * sy
 
-        # 4) 검 이미지 스케일/피벗 보정
-        img = self.weapon.image
+        # 4) 검 이미지 스케일(몸 높이 비례) + 피벗 보정
+        img = self.weapon.image  # real_sword.png (15x31)
         sw, sh = img.w, img.h
-        scale = H / 80.0  # 몸 크기에 맞춘 상대 스케일(튜닝)
+        scale = self.draw_h / 80.0  # 기존 로직 유지(몸 H=80일 때 1.0배)
         dw, dh = int(sw * scale), int(sh * scale)
 
-        dx, dy = self.weapon_pivot_px  # 이미지 중심 기준 오프셋(픽셀)
+        dx, dy = PIVOT_FROM_CENTER_PX  # 검 '센터'→'손잡이' 벡터(px)
         dx *= scale
         dy *= scale
         rad = math.radians(deg_prime)
@@ -659,6 +668,8 @@ class Character:
         cy = hy + ry
 
         img.clip_composite_draw(0, 0, sw, sh, rad, flip, cx, cy, dw, dh)
-        draw_rectangle(hx - 2, hy - 2, hx + 2, hy + 2)  # 손 위치가 이상해서 좀 확인해봐야
+
+        # 디버그: 손 지점 확인용 점
+        draw_rectangle(hx - 2, hy - 2, hx + 2, hy + 2)
 
 
