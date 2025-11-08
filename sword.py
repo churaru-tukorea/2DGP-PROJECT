@@ -15,22 +15,24 @@ class Sword:
         self.draw_w = 20  # 화면에 보이는 폭
         self.draw_h = 80  # 화면에 보이는 높이
 
+        self.y = ground_y + self.draw_h * 0.5 - 10   # 땅에 꽂힌 느낌
+
         self.state = 'GROUND'
 
     def update(self):
         pass
 
     def draw(self):
-        #바닥에 박혀 보이도록 중심 y를 살짝 내린다.
-        y = self.ground_y + (self.draw_h // 2) - self.embed_px
-        self.image.clip_composite_draw(0, 0, self.image.w, self.image.h, math.pi, '',  self.x, y,  self.draw_w, self.draw_h )
+        if self.state != 'GROUND': return
+        # 바닥에 박힌 느낌으로 약간 기울여 그림(연출)
+        self.image.clip_composite_draw(0, 0, self.image.w, self.image.h,
+                                       3.14159, '', self.x, self.y,
+                                       self.draw_w, self.draw_h)
 
     def get_bb(self):
-        if self.state == 'GROUND':
-            halfw = self.draw_w // 2
-            bottom = self.ground_y
-            top = bottom + self.draw_h - self.embed_px
-            return self.x - halfw, bottom, self.x + halfw, top
-
+        if self.state != 'GROUND':
+            return -9999,-9999,-9998,-9998
+        half = self.draw_w*0.5
+        return self.x-half, self.ground_y, self.x+half, self.ground_y+self.draw_h-12
     def handle_collision(self, group, other):
         pass
