@@ -1,7 +1,13 @@
+from types import SimpleNamespace
+
 from pico2d import load_image, get_time, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_RIGHT, SDLK_LEFT, SDLK_a, \
     get_canvas_height, draw_rectangle
 from sdl2 import SDLK_j, SDLK_p, SDLK_k
 
+
+from pico2d import (SDL_KEYDOWN, SDL_KEYUP,
+                    SDLK_LEFT, SDLK_RIGHT, SDLK_j, SDLK_k, SDLK_p,
+                    SDLK_a, SDLK_d, SDLK_1, SDLK_2, SDLK_3) # 2p키까지 감안해서 그냥 한번에 해버리기
 # 애니 좌표/액션 인덱스:
 from sprite_tuples import ACTION, sprite, sweat
 from state_machine import StateMachine
@@ -294,12 +300,35 @@ class Parry_Hold:
 
 
 class Character:
-    def __init__(self, pid=1):
+    def __init__(self, pid=1, keymap=None):
         self.x, self.y = 400, 150 # 이건 그냥 띄워보려는 거니까 일단 임의위치 위에 띄우려는
         self.pid = pid
         self.face_dir = +1
         self.move_dir = 0
         self.image = load_image('project_character_sheet.png')
+
+        if keymap is None:
+            if pid == 1:
+                self.keymap = {
+                    'left':  [SDLK_a],
+                    'right': [SDLK_d],
+                    'jump':  [SDLK_j],
+                    'attack':[SDLK_k],
+                    'parry': [SDLK_p],
+                }
+            else:  # pid == 2
+                self.face_dir = -1
+                self.keymap = {
+
+                    'left':  [SDLK_LEFT],
+                    'right': [SDLK_RIGHT],
+                    'jump':  [SDLK_1],
+                    'attack':[SDLK_2],
+                    'parry': [SDLK_3],
+                }
+        else:
+            self.keymap = keymap
+
 
         self.next_idle_flip = get_time() + 0.125  # idle을 넘기는 기준의 시간이 되어주는
 
@@ -432,6 +461,19 @@ class Character:
         pass
 
     def handle_event(self, event):
+
+        # 1) 내 키가 아니면 무시
+        if event.type in (SDL_KEYDOWN, SDL_KEYUP):
+            if not self._belongs_to_me(event.key):
+                return
+
+            # 2) 공용 키로 정규화
+            vk = self._normalize_key(event.key)
+            if vk is None:
+                return
+            event = SimpleNamespace(type=event.type, key=vk)
+
+
         # --- 좌/우 눌림 상태 관리 ---
         if event.type == SDL_KEYDOWN:
             if event.key == SDLK_RIGHT:
@@ -460,7 +502,20 @@ class Character:
 
         # 나머지는 상태머신에 그대로 전달
         self.state_machine.handle_state_event(('INPUT', event))
-        
+
+    def _belongs_to_me(self, key):# 이게 1p용 키인지 2p용 키인지 확인하는 함수로
+        for keys in self.keymap.values():
+            if key in keys:
+                return True
+        return False
+
+    def _normalize_key(self, key): #키를 표준화 시켜주는
+        if key in self.keymap['left']:   return SDLK_LEFT
+        if key in self.keymap['right']:  return SDLK_RIGHT
+        if key in self.keymap['jump']:   return SDLK_j
+        if key in self.keymap['attack']: return SDLK_k
+        if key in self.keymap['parry']:  return SDLK_p
+        return None
         
     def update(self):
         #생각해봤는데 상태랑 상관없이 무조건 매 프레임 돌아야 하는 애들은 그냥 한번에 여기서 계산하기로 하는게 편하지 않을까?

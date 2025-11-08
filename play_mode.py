@@ -19,7 +19,8 @@ def handle_events():
             running = False
 
         else:
-            character.handle_event(event)  # space 키가 들어오면 소년에게 전달.
+            p1.handle_event(event)#그냥 둘다 한번씩 처리하면 되지 않을까?
+            p2.handle_event(event)
 
 
 
@@ -27,7 +28,8 @@ def handle_events():
 
 def init():
 
-    global character
+    global p1
+    global p2
     global running
     global sword
 
@@ -35,19 +37,25 @@ def init():
     running = True
 
 
+    p1 = Character(pid=1)
+    p1.x = 300
+    p2 = Character(pid=2)
+    p2.x = 900
+
 
 
     grass = Grass()
     game_world.add_object(grass, 0)
 
-    character = Character()
-    game_world.add_object(character, 1)
+    game_world.add_object(p1, 1)
+    game_world.add_object(p2, 1)
 
     sword = Sword(0)
     game_world.add_object(sword, 1)
 
 #플레이어가 검을 먹는 그걸 하려고.
-    game_world.add_collision_pair('char:sword', character, None)
+    game_world.add_collision_pair('char:sword', p1, None)
+    game_world.add_collision_pair('char:sword', p2, None)
     game_world.add_collision_pair('char:sword', None, sword)
 
 
