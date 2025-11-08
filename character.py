@@ -5,6 +5,7 @@ from sdl2 import SDLK_j, SDLK_p
 # 애니 좌표/액션 인덱스:
 from sprite_tuples import ACTION, sprite, sweat
 from state_machine import StateMachine
+from anchors import ANCHOR, load_csv
 
 # 공격의 여러 상태를 추가(이게 공격 이후 어떤상태에 갈지도 다 다르기 떄무네)
 def attack_ready(e):      return e[0] == 'ATTACK_READY'
@@ -339,8 +340,11 @@ class Character:
         # 지금은 스테이지가 없으니까, 그냥 창을 그거로 한다.
         self.ground_y = 90   # 200이면 100
 
+        load_csv('anchor_firstpass_shoulder.csv')  # CSV 로드
+        self.weapon = None
         self.equipped = None
         self.attachments = []   # 나중에 검 말고 다른것도 할 예정이니까 이걸로 관리
+        self.weapon_pivot_px = (0.0, -11.0)
 
         # 시작 y도 이걸로 맞춰놓자
         self.x, self.y = 400, 150
@@ -508,6 +512,7 @@ class Character:
 
     def draw(self):
         self.state_machine.draw()
+        self._draw_weapon_if_any()# 무기 그려야지
         self.draw_sweat_overlay() # 캐릭터 관련된걸 그리고 그 위에 땀방울을 그리는
 
     def draw_sweat_overlay(self):
@@ -577,9 +582,27 @@ class Character:
                 self.pickup_sword(other)
 
         def pickup_sword(self, sword):
-            sword.state = 'EQUIPPED'
-            game_world.remove_object(sword)  # 월드에서 제거(충돌 리스트에서도 빠짐)
-            self.equipped = sword
-            # 아래 S2에서 정의할 부착 시스템으로 등록
-            self.attach_sword(sword)
+            if self.weapon:  # 이미 들고 있으면 무시
+                return
+            sword.set_equipped()
+            self.weapon = sword
+            import game_world
+            game_world.remove_object(sword)  # 월드에서 빼기(바닥용 충돌 제거)
+
+        def _current_frame_info(self):
+            act = self.action  # 'idle','move','attack_fire', ...
+            if act == 'idle':
+                idx = self.anim_frame
+            elif act == 'move':
+                idx = self.move_frame
+            elif act == 'attack_fire':
+                idx = self.attack_frame
+            else:
+                return None
+            l, b, w, h = sprite[ACTION[act]][idx]
+            return act, idx, (w, h)
+
+    def _draw_weapon_if_any(self):
+        pass
+
 
