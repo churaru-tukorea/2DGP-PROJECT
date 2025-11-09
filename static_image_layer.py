@@ -29,3 +29,12 @@ class StaticImageLayer:
 
     def get_bb(self):
         return 0, 0, 0, 0
+
+    def get_fit_params(self):
+
+        iw, ih = self.image.w, self.image.h
+
+        s = self.dw / iw if iw != 0 else 1.0
+        dx = self.cx - self.dw * 0.5
+        dy = self.cy - self.dh * 0.5
+        return s, dx, dy, iw, ih
