@@ -114,6 +114,7 @@ class Sword:
       except:
         pass
 
+
     def _compute_equipped_pose(self):
         owner = self.owner
         info = owner._current_frame_info()
