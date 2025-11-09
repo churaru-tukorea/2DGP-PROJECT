@@ -454,7 +454,8 @@ class Character:
             # 착지 애니 돌기
             self.JUMP_LAND: {
                 (lambda e, _self=self: e[0] == 'TIMEOUT' and (_self.right_pressed or _self.left_pressed)): self.MOVE,
-                time_out: self.IDLE
+                time_out: self.IDLE,
+                attack_ready: self.ATTACK_FIRE
             },
             self.ATTACK_FIRE: {
                 attack_end_air: self.JUMP_FALL,  # 착지 모션/낙하 상태로 (JumpLand 쓰면 그걸로 교체)
@@ -660,18 +661,27 @@ class Character:
 
         # 현재 프레임의 원본 크기(w,h) → 몸체 스케일 비율 계산
         action = self.action  # 'idle','move','jump_land','attack_fire','parry_hold'
-        if action == 'idle':
+        if action in ('jump_up', 'jump_fall'):
+            idx = self.jump_frame
+            action_key = 'jump_land'
+        elif action == 'idle':
             idx = self.anim_frame
+            action_key = 'idle'
         elif action == 'move':
             idx = self.move_frame
+            action_key = 'move'
         elif action == 'attack_fire':
             idx = self.attack_frame
+            action_key = 'attack_fire'
         elif action == 'parry_hold':
             idx = 0
-        else:  # 'jump_land' 등
+            action_key = 'parry_hold'
+        else:
+            # 혹시 모르는 예외 키는 점프 랜딩으로 폴백
             idx = self.jump_frame
+            action_key = 'jump_land'
 
-        l, b, w, h = sprite[ACTION[action]][idx]
+        l, b, w, h = sprite[ACTION[action_key]][idx]
         # 몸체가 (w,h) → (draw_w,draw_h)로 그려지므로 이 비율을 따라간다
         sx_scale = self.draw_w / max(w, 1)
         sy_scale = self.draw_h / max(h, 1)
@@ -751,21 +761,28 @@ class Character:
             other.state = 'EQUIPPED'
             return
 
-
     def _current_frame_info(self):
-            act = self.action  # 'idle','move','attack_fire', ...
-            if act == 'idle':
-                idx = self.anim_frame
-            elif act == 'move':
-                idx = self.move_frame
-            elif act == 'attack_fire':
-                idx = self.attack_frame
-            elif act == 'parry_hold':
-                idx = 0
-            else:
-                return None
-            l, b, w, h = sprite[ACTION[act]][idx]
-            return act, idx, (w, h)
+        act = self.action  # 'idle','move','attack_fire','parry_hold','jump_up','jump_fall','jump_land'
+        if act == 'idle':
+            idx = self.anim_frame
+            key = 'idle'
+        elif act == 'move':
+            idx = self.move_frame
+            key = 'move'
+        elif act == 'attack_fire':
+            idx = self.attack_frame
+            key = 'attack_fire'
+        elif act == 'parry_hold':
+            idx = 0
+            key = 'parry_hold'
+        elif act in ('jump_up', 'jump_fall', 'jump_land'):
+            idx = self.jump_frame
+            key = 'jump_land'  # ← 점프 계열은 시트 키 통일
+        else:
+            return None
+
+        l, b, w, h = sprite[ACTION[key]][idx]
+        return key, idx, (w, h)
 
     def _draw_weapon_if_any(self):
         if not self.weapon:
