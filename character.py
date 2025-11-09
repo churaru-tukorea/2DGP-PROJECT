@@ -132,7 +132,7 @@ class Jump_Up:
         self.boy = boy
 
     def enter(self, state_event):
-        self.boy.action = "jump_land"
+        self.boy.action = "jump_up"
         self.boy.jump_frame = 0
         self.boy.vy = self.boy.jump_speed
         self.boy.jump_pressed_time = get_time()
@@ -162,7 +162,7 @@ class Jump_Fall:
         self.boy = boy
 
     def enter(self, state_event):
-        self.boy.action = "jump_land"
+        self.boy.action = "jump_fall"
         self.boy.jump_frame = 1
         # 혹시 위로 너무 천천히 가고 있으면 아래로 방향만 만들기
         if self.boy.vy > 0:
@@ -194,7 +194,7 @@ class Jump_Land:
         self.boy = boy
 
     def enter(self, state_event):
-        self.boy.action = "attack_fire"
+        self.boy.action = "jump_land"
         self.boy.jump_frame = 0
         STEP = 0.05  # draw의 STEP과 동일하게
         self.boy.next_jump_flip = get_time() + STEP
@@ -450,6 +450,7 @@ class Character:
             },
             # 착지 애니 돌기
             self.JUMP_LAND: {
+                (lambda e, _self=self: e[0] == 'TIMEOUT' and (_self.right_pressed or _self.left_pressed)): self.MOVE,
                 time_out: self.IDLE
             },
             self.ATTACK_FIRE: {
