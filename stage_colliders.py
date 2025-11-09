@@ -19,17 +19,20 @@ class StageColliders:
         s, dx, dy, iw, ih = self.boss_stage_layer.get_fit_params()
         SW, SH = stage_layout.STAGE_SOURCE_SIZE
 
-        # assert (iw, ih) == (SW, SH), "원본 이미지 크기와 stage_layout 기준이 다릅니다."
+        dw = s * iw
+        dh = s * ih
+
+        sx = dw / SW
+        sy = dh / SH
 
         boxes = []
         for name, typ, L, B, R, T in stage_layout.STAGE_BOXES:
-            # 혹시 순서가 뒤집혔을 때 방어
             if L > R: L, R = R, L
             if B > T: B, T = T, B
-            Lp = dx + L * s
-            Rp = dx + R * s
-            Bp = dy + B * s
-            Tp = dy + T * s
+            Lp = dx + L * sx
+            Rp = dx + R * sx
+            Bp = dy + B * sy
+            Tp = dy + T * sy
             boxes.append((name, typ, Lp, Bp, Rp, Tp))
         self.screen_boxes = boxes
         self._cache_key = self._layout_key()
