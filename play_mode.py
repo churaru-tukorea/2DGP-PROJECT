@@ -4,6 +4,8 @@ import game_world
 from grass import Grass
 from sword import Sword
 
+from static_image_layer import StaticImageLayer
+
 running = True
 character = None
 
@@ -42,16 +44,22 @@ def init():
     p2 = Character(pid=2)
     p2.x = 900
 
+    background_layer = StaticImageLayer('background.png')
+    game_world.add_object(background_layer, 0)
+
+    boss_stage_layer = StaticImageLayer('boss stage.png')  # 혹은 'boss_stage.png'
+    game_world.add_object(boss_stage_layer, 1)
 
 
-    grass = Grass()
-    game_world.add_object(grass, 0)
 
-    game_world.add_object(p1, 1)
-    game_world.add_object(p2, 1)
+    #grass = Grass()
+    #game_world.add_object(grass, 0)
 
-    sword = Sword(0)
-    game_world.add_object(sword, 1)
+    game_world.add_object(p1, 2)
+    game_world.add_object(p2, 2)
+
+    sword = Sword(2)
+    game_world.add_object(sword, 2)
 
 #플레이어가 검을 먹는 그걸 하려고.
     game_world.add_collision_pair('char:sword', p1, None)
