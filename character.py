@@ -12,7 +12,7 @@ from pico2d import (SDL_KEYDOWN, SDL_KEYUP,
 from sprite_tuples import ACTION, sprite, sweat
 from state_machine import StateMachine
 import math
-
+import game_world
 from sword_poses import POSE, LEFT_FLIP_RULE, PIVOT_FROM_CENTER_PX
 
 
@@ -645,17 +645,15 @@ class Character:
         if group == 'char:sword' and self.weapon is None and getattr(other, 'state', '') == 'GROUND':
             self.pickup_sword(other)
 
-    def pickup_sword(self, sword):
+    def pickup_sword(self, other):
             if self.weapon:  # 이미 들고 있으면 무시
                 return
             #sword.set_equipped()
-            self.weapon = sword
-            import game_world
-            game_world.remove_object(sword)  # 월드에서 빼기(바닥용 충돌 제거)
+            self.weapon = other
+            game_world.remove_collision_object_once(other, 'char:sword')
+            print('무기 장착 (월드 유지, EQUIPPED)')
+            return
 
-   # def set_equipped(self, owner=None):
-    #    self.equipped = 'EQUIPPED'
-     #   self.owner = owner
 
     def _current_frame_info(self):
             act = self.action  # 'idle','move','attack_fire', ...
