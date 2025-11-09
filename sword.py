@@ -51,12 +51,12 @@ class Sword:
             half_h = self.draw_h * 0.5
             return self.x - half_w, self.y - half_h, self.x + half_w, self.y + half_h
 
-
         if self.state == 'EQUIPPED' and self.owner:
             pose = self._compute_equipped_pose()
             if pose:
                 cx, cy, rad, _flip, dw, dh, _hx, _hy, _aabb = pose
-                return self._ob_from_center(cx, cy, dw, dh, rad)
+                hw, hh = dw * 0.5, dh * 0.5
+                return cx - hw, cy - hh, cx + hw, cy + hh
 
         return -9999, -9999, -9998, -9998
 
