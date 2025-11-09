@@ -63,6 +63,12 @@ def init():
     game_world.add_object(p1, 2)
     game_world.add_object(p2, 2)
 
+    game_world.add_collision_pair('char:stage', p1, stage_colliders)
+    game_world.add_collision_pair('char:stage', p2, stage_colliders)
+
+    p1.use_stage_collision = True
+    p2.use_stage_collision = True
+
     sword = Sword(2)
     game_world.add_object(sword, 2)
 
