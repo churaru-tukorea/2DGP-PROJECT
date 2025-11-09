@@ -64,17 +64,22 @@ class Sword:
 
     def get_obb(self):
         if self.state == 'EQUIPPED' and self.owner:
-            cx, cy, rad, _flip, dw, dh, *_ = self._compute_equipped_pose()
-            hw, hh = dw*0.5, dh*0.5
+            pose = self._compute_equipped_pose()
+            if not pose:
+                ox, oy = self.owner.x, self.owner.y
+                s = 6
+                return ((ox - s, oy - s), (ox + s, oy - s), (ox + s, oy + s), (ox - s, oy + s))
+            cx, cy, rad, _flip, dw, dh, *_ = pose
+            hw, hh = dw * 0.5, dh * 0.5
             c, s = math.cos(rad), math.sin(rad)
             return (
-                (cx +(+hw)*c -(+hh)*s, cy +(+hw)*s +(+hh)*c),
-                (cx +(+hw)*c -(-hh)*s, cy +(+hw)*s +(-hh)*c),
-                (cx +(-hw)*c -(-hh)*s, cy +(-hw)*s +(-hh)*c),
-                (cx +(-hw)*c -(+hh)*s, cy +(-hw)*s +(+hh)*c),
+                (cx + (+hw) * c - (+hh) * s, cy + (+hw) * s + (+hh) * c),
+                (cx + (+hw) * c - (-hh) * s, cy + (+hw) * s + (-hh) * c),
+                (cx + (-hw) * c - (-hh) * s, cy + (-hw) * s + (-hh) * c),
+                (cx + (-hw) * c - (+hh) * s, cy + (-hw) * s + (+hh) * c),
             )
-        l,b,r,t = self.get_bb()
-        return ((l,b),(r,b),(r,t),(l,t))
+        l, b, r, t = self.get_bb()
+        return ((l, b), (r, b), (r, t), (l, t))
 
     def get_bb(self):
         if self.state == 'GROUND':
@@ -82,6 +87,18 @@ class Sword:
             half_h = self.draw_h * 0.5
             return self.x - half_w, self.y - half_h, self.x + half_w, self.y + half_h
 
+        if self.state == 'EQUIPPED' and self.owner:
+            pose = self._compute_equipped_pose()
+            if pose:
+                cx, cy, rad, _flip, dw, dh, _hx, _hy, _aabb = pose
+                hw, hh = dw * 0.5, dh * 0.5
+                return cx - hw, cy - hh, cx + hw, cy + hh
+            # 폴백: 오너 중심의 작은 AABB (디버그·안전용)
+            ox, oy = self.owner.x, self.owner.y
+            s = 6
+            return ox - s, oy - s, ox + s, oy + s
+
+        return -9999, -9999, -9998, -9998
         if self.state == 'EQUIPPED' and self.owner:
             pose = self._compute_equipped_pose()
             if pose:
