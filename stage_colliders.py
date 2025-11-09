@@ -17,11 +17,13 @@ class StageColliders:
 
     def rebuild(self):
         s, dx, dy, iw, ih = self.boss_stage_layer.get_fit_params()
-        SW, SH = stage_layout.STAGE_SOURCE_SIZE
+        SW, SH = stage_layout.STAGE_SOURCE_SIZE  # (2562, 1446)
 
+        # 커버로 실제 그려진 폭/높이
         dw = s * iw
         dh = s * ih
 
+        # 축별 스케일
         sx = dw / SW
         sy = dh / SH
 
