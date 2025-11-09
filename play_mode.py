@@ -44,10 +44,10 @@ def init():
     p2 = Character(pid=2)
     p2.x = 900
 
-    background_layer = StaticImageLayer('background.png')
+    background_layer = StaticImageLayer('background.png', fit='cover')
     game_world.add_object(background_layer, 0)
 
-    boss_stage_layer = StaticImageLayer('boss stage.png')  # 혹은 'boss_stage.png'
+    boss_stage_layer = StaticImageLayer('boss stage.png', fit='cover') # 혹은 'boss_stage.png'
     game_world.add_object(boss_stage_layer, 1)
 
 
