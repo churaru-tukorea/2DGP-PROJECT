@@ -173,12 +173,12 @@ class Jump_Fall:
         pass
 
     def do(self):
-        # 여기서는 그냥 떨어지기만 한다.
-        # 땅 닿으면 착지 이벤트로 넘겨주는거임
-        if self.boy.y <= self.boy.ground_y:
-            self.boy.y = self.boy.ground_y
-            self.boy.vy = 0
-            self.boy.state_machine.handle_state_event(('LAND', None))
+        # 스테이지 충돌을 안 쓸 때만 옛 ground_y 체크
+        if not getattr(self.boy, 'use_stage_collision', False):
+            if self.boy.y <= self.boy.ground_y:
+                self.boy.y = self.boy.ground_y
+                self.boy.vy = 0
+                self.boy.state_machine.handle_state_event(('LAND', None))
 
     def draw(self):
         l, b, w, h = sprite[ACTION['jump_land']][1]
