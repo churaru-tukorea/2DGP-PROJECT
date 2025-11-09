@@ -414,6 +414,9 @@ class Character:
         self.ATTACK_FIRE = Attack_Fire(self)
         self.PARRY_HOLD = Parry_Hold(self)
 
+        self._shield_pose = None  # 방패 위치/회전
+        self._shield_obb = None # 방패 OBB
+        self._shield_aabb = None
 
         self.state_machine = StateMachine(self.IDLE, {
             self.IDLE: {
@@ -578,6 +581,49 @@ class Character:
                 self.state_machine.handle_state_event(('LAND', None))
 
         self.state_machine.update()
+
+        if getattr(self, 'action', None) == 'parry_hold':
+            cur = self._current_frame_info() if hasattr(self, '_current_frame_info') else None
+            if cur:
+                act, idx, wh = cur
+                fw, fh = wh if isinstance(wh, (tuple, list)) and len(wh) == 2 else (self.draw_w, self.draw_h)
+
+                ox_src, oy_src = 21.47, 9.07
+                deg = 0.0
+
+
+                sx = self.draw_w / float(max(fw, 1))
+                sy = self.draw_h / float(max(fh, 1))
+
+                hy = self.y - self.draw_h * 0.5 + oy_src * sy
+                if self.face_dir == 1:
+                    hx = self.x - self.draw_w * 0.5 + ox_src * sx
+                    deg_prime, flip = deg, ''
+                else:
+                    hx = self.x + self.draw_w * 0.5 - ox_src * sx
+                    deg_prime, flip = 180.0 - deg, 'h'
+
+                img = self.shield_image
+                sw, sh = img.w, img.h
+                scale = self.draw_h / 30.0
+                dw, dh = int(sw * scale), int(sh * scale)
+                rad = math.radians(deg_prime)
+
+                self._shield_pose = (hx, hy, rad, flip, dw, dh)
+
+                hw, hh = dw * 0.5, dh * 0.5
+                c, s = math.cos(rad), math.sin(rad)
+                self._shield_obb = (
+                    (hx + (+hw) * c - (+hh) * s, hy + (+hw) * s + (+hh) * c),
+                    (hx + (+hw) * c - (-hh) * s, hy + (+hw) * s + (-hh) * c),
+                    (hx + (-hw) * c - (-hh) * s, hy + (-hw) * s + (-hh) * c),
+                    (hx + (-hw) * c - (+hh) * s, hy + (-hw) * s + (+hh) * c),
+                )
+
+                xs = [p[0] for p in self._shield_obb]
+                ys = [p[1] for p in self._shield_obb]
+                self._shield_aabb = (min(xs), min(ys), max(xs), max(ys))
+
 
     def draw(self):
         self.state_machine.draw()
