@@ -834,38 +834,23 @@ class Character:
 
         if getattr(self, 'action', None) != 'parry_hold':
             return
-
-        cur = self._current_frame_info()
-        if not cur:
+        if not self._shield_pose:
             return
-        act, idx, (fw, fh) = cur
 
-        ox_src, oy_src = 21.47, 9.07
-        deg = 0.0
-
-        sx = self.draw_w / float(fw)
-        sy = self.draw_h / float(fh)
-
-        # y는 좌우와 무관
-        hy = self.y - self.draw_h * 0.5 + oy_src * sy
-
-
-        if self.face_dir == 1:  # 오른쪽
-            hx = self.x - self.draw_w * 0.5 + ox_src * sx
-            deg_prime = deg
-            flip = ''
-        else:  # 왼쪽
-            hx = self.x + self.draw_w * 0.5 - ox_src * sx
-            deg_prime = 180.0 - deg
-            flip = 'h'
-
-        scale = self.draw_h / 30.0
-
+        hx, hy, rad, flip, dw, dh = self._shield_pose
         img = self.shield_image
-        sw, sh = img.w, img.h
-        dw, dh = int(sw * scale), int(sh * scale)
 
-        rad = math.radians(deg_prime)
+        img.clip_composite_draw(0, 0, img.w, img.h, rad, flip, hx, hy, dw, dh)
 
+        if self._shield_aabb:
+            l, b, r, t = self._shield_aabb
+            draw_rectangle(l, b, r, t)
 
-        img.clip_composite_draw(0, 0, sw, sh, rad, flip, hx, hy, dw, dh)
+    def get_obb(self):
+        # 패링 중이면 방패 OBB만 충돌 대상으로 사용
+        if getattr(self, 'action', None) == 'parry_hold' and self._shield_obb:
+            return self._shield_obb
+        # 아니면 몸통 AABB의 네 꼭짓점을 반환(기존 충돌 동작 유지)
+        l, b, r, t = self.get_bb()
+        return ((l, b), (r, b), (r, t), (l, t))
+
