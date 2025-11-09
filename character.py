@@ -578,6 +578,7 @@ class Character:
        # self._draw_weapon_if_any()# 무기 그려야지
         self._draw_shield_if_parry()
         self.draw_sweat_overlay() # 캐릭터 관련된걸 그리고 그 위에 땀방울을 그리는
+        draw_rectangle(*self.get_bb())
 
     def draw_sweat_overlay(self):
         # 예약 중이 아니면 표시 안 함

@@ -58,6 +58,10 @@ def init():
     game_world.add_collision_pair('char:sword', p2, None)
     game_world.add_collision_pair('char:sword', None, sword)
 
+    # 이게 그냥 움직일 때도 닿을 때가 있는데, 아무리 생각해도 그때마다 체크해서 공격상태인지 보는 것보다 그냥 공격 하는 순간에만 이 그룹에 넣었다 빼는게 더 낫지 않나?
+    game_world.add_collision_pair('attack_sword:char', None, p1)
+    game_world.add_collision_pair('attack_sword:char', None, p2)
+
 
 
 
