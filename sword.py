@@ -8,6 +8,7 @@ import game_world
 class Sword:
 
     def __init__(self, ground_y: int, x: int | None = None):
+        self._parry_lock = None
         self.image = load_image('real_sword.png')
         cw = get_canvas_width()
         self.x = x if x is not None else random.randint(40, cw - 40)
@@ -22,6 +23,10 @@ class Sword:
         self.owner = None
 
     def update(self):
+        
+        if getattr(self, '_parry_lock', False):
+            self._parry_lock = False
+
         try:
             if self.state == 'EQUIPPED' and self.owner and getattr(self.owner, 'action', '') == 'attack_fire':
                 # 중복 방지: 먼저 제거 후 한 번만 추가
