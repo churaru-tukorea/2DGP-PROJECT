@@ -54,3 +54,22 @@ class StageColliders:
     # 충돌 단계에서 쓸 수 있도록 getter도 준비
     def get_screen_boxes(self):
         return self.screen_boxes
+
+    def get_bb(self):
+        # 모든 박스를 덮는 큰 AABB (broad phase 용)
+        if not self.screen_boxes:  # 안전
+            return -1e9, -1e9, 1e9, 1e9
+        xs = []; ys = []
+        for _, _, L, B, R, T in self.screen_boxes:
+            xs += [L, R]; ys += [B, T]
+        return min(xs), min(ys), max(xs), max(ys)
+
+    def query_boxes(self, aabb, margin=1.0):
+        l, b, r, t = aabb
+        l -= margin; b -= margin; r += margin; t += margin
+        out = []
+        for name, typ, L, B, R, T in self.screen_boxes:
+            if r <= L or l >= R or t <= B or b >= T:
+                continue
+            out.append((name, typ, L, B, R, T))
+        return out
