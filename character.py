@@ -364,9 +364,9 @@ class Character:
         self.vx = 0.0
         self.vy = 0.0
         self.move_speed = 250.0     # px/s
-        self.jump_speed = 1500.0     # px/s 위로
+        self.jump_speed = 1200.0     # px/s 위로
         self.gravity = -1200.0      # px/s^2
-        self.max_jump_hold = 0.18   # 버튼 홀드로 더 올라갈 수 있는 시간(초)
+        self.max_jump_hold = 0.3   # 버튼 홀드로 더 올라갈 수 있는 시간(초)
 
         self.jump_pressed_time = 0.0   # 언제 점프 시작했는지
         self.last_time = get_time()    # dt 구하려고

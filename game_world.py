@@ -95,7 +95,7 @@ def handle_collisions():
         for a in pairs[0]:
             for b in pairs[1]:
                 if collide(a, b):
-                    print(f'COLLIDE[{group}] {a} <-> {b}')
+                    #print(f'COLLIDE[{group}] {a} <-> {b}')
                     a.handle_collision(group, b)
                     b.handle_collision(group, a)
 
