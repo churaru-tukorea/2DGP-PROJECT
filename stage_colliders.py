@@ -39,6 +39,9 @@ class StageColliders:
         self.screen_boxes = boxes
         self._cache_key = self._layout_key()
 
+    def handle_collision(self, group, other):
+        return
+
     def update(self):
         # boss_stage 레이아웃이 변하면 자동 재계산
         if self._layout_key() != self._cache_key:

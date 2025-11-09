@@ -887,6 +887,74 @@ class Character:
         l, b, r, t = self.get_bb()
         return ((l, b), (r, b), (r, t), (l, t))
 
-    def _solve_stage_collision(self, other):
-        pass
+    def _aabb_intersect(self, a, b):
+        al, ab, ar, at = a;
+        bl, bb, br, bt = b
+        return not (ar <= bl or al >= br or at <= bb or ab >= bt)
 
+    def _half_extents(self):
+        halfw = self.draw_w // 2 - 8
+        halfh = self.draw_h // 2 - 8
+        return halfw, halfh
+
+    def _solve_stage_collision(self, stage):
+        cur_bb = self.get_bb()
+        near = stage.query_boxes(cur_bb, margin=2.0)
+
+        if not near:
+            return
+
+        hw, hh = self._half_extents()
+        prev_bb = (self.prev_x - hw, self.prev_y - hh, self.prev_x + hw, self.prev_y + hh)
+
+        landed_top = None
+        hit_bottom = None
+
+        if self.vy <= 0:
+            for _, typ, L, B, R, T in near:
+                if not self._aabb_intersect(cur_bb, (L, B, R, T)): continue
+                if prev_bb[1] >= T and cur_bb[1] < T + self._eps:
+                    if landed_top is None or T > landed_top:
+                        landed_top = T
+            if landed_top is not None:
+                self.y = landed_top + hh
+                self.vy = 0
+                cur_bb = self.get_bb()
+                if self.state_machine.cur_state in (self.JUMP_UP, self.JUMP_FALL):
+                    self.state_machine.handle_state_event(('LAND', None))
+
+        elif self.vy > 0:
+            for _, typ, L, B, R, T in near:
+                if not self._aabb_intersect(cur_bb, (L, B, R, T)): continue
+                if prev_bb[3] <= B and cur_bb[3] > B - self._eps:
+                    if hit_bottom is None or B < hit_bottom:
+                        hit_bottom = B
+            if hit_bottom is not None:
+                self.y = hit_bottom - hh
+                self.vy = 0
+                cur_bb = self.get_bb()
+
+        push_left = None
+        push_right = None
+
+        if self.vx > 0:
+            for _, typ, L, B, R, T in near:
+                if not self._aabb_intersect(cur_bb, (L, B, R, T)): continue
+                if prev_bb[2] <= L and cur_bb[2] > L - self._eps:
+                    if push_left is None or L < push_left:
+                        push_left = L
+            if push_left is not None:
+                self.x = push_left - hw
+                self.vx = 0
+                cur_bb = self.get_bb()
+
+        elif self.vx < 0:
+            for _, typ, L, B, R, T in near:
+                if not self._aabb_intersect(cur_bb, (L, B, R, T)): continue
+                if prev_bb[0] >= R and cur_bb[0] < R + self._eps:
+                    if push_right is None or R > push_right:
+                        push_right = R
+            if push_right is not None:
+                self.x = push_right + hw
+                self.vx = 0
+                cur_bb = self.get_bb()
