@@ -50,13 +50,32 @@ def clear():
 
 
 def collide(a, b):
-    left_a, bottom_a, right_a, top_a = a.get_bb()
-    left_b, bottom_b, right_b, top_b = b.get_bb()
+    # --- 기존과 완전히 동일한 AABB 경로 ---
+    if not hasattr(a, 'get_obb') and not hasattr(b, 'get_obb'):
+        l1,b1,r1,t1 = a.get_bb(); l2,b2,r2,t2 = b.get_bb()
+        return not (l1 > r2 or r1 < l2 or t1 < b2 or b1 > t2)
 
-    if left_a > right_b: return False
-    if right_a < left_b: return False
-    if top_a < bottom_b: return False
-    if bottom_a > top_b: return False
+    # --- 여기서부터만 OBB 필요할 때 사용 ---
+    def corners(o):
+        if hasattr(o, 'get_obb'):
+            return o.get_obb()
+        l,b,r,t = o.get_bb()
+        return ((l,b),(r,b),(r,t),(l,t))
+
+    A, B = corners(a), corners(b)
+
+    def axes(poly):
+        x0,y0=poly[0]; x1,y1=poly[1]; x2,y2=poly[2]
+        return [ (-(y1-y0), x1-x0), (-(y2-y1), x2-x1) ]  # 두 법선이면 충분
+
+    def proj(poly, ax, ay):
+        vals = [x*ax + y*ay for x,y in poly]
+        return min(vals), max(vals)
+
+    for ax, ay in axes(A) + axes(B):
+        a0,a1 = proj(A,ax,ay); b0,b1 = proj(B,ax,ay)
+        if a1 < b0 or b1 < a0:
+            return False
     return True
 
 collision_pairs = {}

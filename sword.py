@@ -143,18 +143,3 @@ class Sword:
         xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
         return min(xs), min(ys), max(xs), max(ys)
 
-    def _ob_from_center(self, cx, cy, dw, dh, rad):
-
-        hw, hh = dw * 0.5, dh * 0.5
-        c, s = math.cos(rad), math.sin(rad)
-
-        corners = (
-            (cx + (+hw) * c - (+hh) * s, cy + (+hw) * s + (+hh) * c),
-            (cx + (+hw) * c - (-hh) * s, cy + (+hw) * s + (-hh) * c),
-            (cx + (-hw) * c - (-hh) * s, cy + (-hw) * s + (-hh) * c),
-            (cx + (-hw) * c - (+hh) * s, cy + (-hw) * s + (+hh) * c),
-        )
-
-        xs = (corners[0][0], corners[1][0], corners[2][0], corners[3][0])
-        ys = (corners[0][1], corners[1][1], corners[2][1], corners[3][1])
-        return (min(xs), min(ys), max(xs), max(ys))
