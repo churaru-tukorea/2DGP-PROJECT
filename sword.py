@@ -104,7 +104,11 @@ class Sword:
 
 
     def detach(self):
+        prev = self.owner
         self.owner = None
+        # 이전 소유자가 아직 나를 들고 있다고 믿고 있으면 끊어준다
+        if prev is not None and getattr(prev, 'weapon', None) is self:
+            prev.weapon = None
 
 
 
