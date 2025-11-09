@@ -645,23 +645,40 @@ class Character:
     def handle_collision(self, group, other):
         if group == 'char:sword' and self.weapon is None and getattr(other, 'state', '') == 'GROUND':
             self.pickup_sword(other)
+            return
+
         if group == 'attack_sword:char':
             sword = other
 
-            # 자기 칼이면 무시
+            #  이미 파링으로 비활성화된 칼은 무시(동일 프레임 재충돌 방지)
+            if getattr(sword, '_parry_lock', False):
+                return
+
+            #  자기 칼이면 무시
             if getattr(sword, 'owner', None) is self:
                 return
 
-            # 패링 중이면 칼을 튕겨서 초기 상태로
+            # 파링 중이면 칼을 튕김
             if getattr(self, 'action', '') == 'parry_hold' or getattr(self, 'parry_active', False):
                 try:
+                    # 다음 충돌 루프에서 이 칼은 공격 판정에서 제외되도록 락을 건다
+                    sword._parry_lock = True
                     sword.reset_to_ground_random()
                 finally:
                     import game_world
-                    game_world.remove_collision_object_once(sword, 'attack_sword:char')  # 같은 프레임 재충돌 방지
+                    game_world.remove_collision_object_once(sword, 'attack_sword:char')
                 return
 
-            # 그 외엔 즉사(월드에서 제거)
+            #  진짜 공격 칼인지 찐 확인(프레임 중간에 상태가 바뀌었을 수 있음)
+            is_active_attack = (
+                    getattr(sword, 'state', '') == 'EQUIPPED'
+                    and getattr(sword, 'owner', None) is not None
+                    and getattr(sword.owner, 'action', '') == 'attack_fire'
+            )
+            if not is_active_attack:
+                return
+
+            # 4) 여기까지 왔다면 즉사(월드에서 제거)
             import game_world
             game_world.remove_object(self)
             return
