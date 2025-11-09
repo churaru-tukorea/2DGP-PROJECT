@@ -109,10 +109,12 @@ class Sword:
       self.state = 'GROUND'
       self.detach()
       try:
-        import game_world
-        game_world.remove_collision_object_once(self, 'attack_sword:char')
-      except:
-        pass
+          import game_world
+          game_world.remove_collision_object_once(self, 'attack_sword:char')
+          # 줍기 그룹에 재등록
+          game_world.add_collision_pair('char:sword', None, self)
+      except Exception:
+          pass
 
 
     def _compute_equipped_pose(self):
