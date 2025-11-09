@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from pico2d import load_image, get_time, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_RIGHT, SDLK_LEFT, SDLK_a, \
-    get_canvas_height, draw_rectangle
+    get_canvas_height, draw_rectangle, load_font
 from sdl2 import SDLK_j, SDLK_p, SDLK_k
 
 
@@ -303,7 +303,7 @@ class Character:
     def __init__(self, pid=1, keymap=None):
         self.x, self.y = 400, 150 # 이건 그냥 띄워보려는 거니까 일단 임의위치 위에 띄우려는
         self.pid = pid
-
+        #self.font = load_font('ENCR10B.TTF', 16)
         self.move_dir = 0
         self.image = load_image('project_character_sheet.png')
 

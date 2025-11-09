@@ -1,5 +1,5 @@
 import random
-from pico2d import load_image, get_canvas_width
+from pico2d import load_image, get_canvas_width, draw_rectangle
 import math
 
 
@@ -17,6 +17,7 @@ class Sword:
 
         self.y = self.ground_y + (self.draw_h - self.embed_px) * 0.5
         self.state = 'GROUND'
+        self.owner = None
 
     def update(self):
         pass
@@ -27,6 +28,7 @@ class Sword:
         self.image.clip_composite_draw(0, 0, self.image.w, self.image.h,
                                        3.14159, '', self.x, self.y,
                                        self.draw_w, self.draw_h)
+        draw_rectangle(*self.get_bb())
 
     def get_bb(self):
         if self.state != 'GROUND':
@@ -39,3 +41,23 @@ class Sword:
     def handle_collision(self, group, other):
         if group == 'char:sword' and self.state == 'GROUND':
             print('캐릭터가 검을 주웠습니다!')
+            # 실제 장착 처리는 Character 쪽에서 한다.
+
+
+
+    def attach_to(self, owner):
+        self.state = 'EQUIPPED'
+        self.owner = owner
+
+
+    def detach(self):
+        self.owner = None
+
+
+
+    def reset_to_ground_random(self):
+    # "처음 생성될 때처럼" 랜덤 X로 바닥 리스폰
+      cw = get_canvas_width()
+      self.x = random.randint(40, cw - 40)
+      self.state = 'GROUND'
+      self.detach()
