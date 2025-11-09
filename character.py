@@ -391,6 +391,11 @@ class Character:
         # 시작 y도 이걸로 맞춰놓자
         self.x, self.y = 400, 150
 
+        self.prev_x = self.x
+        self.prev_y = self.y
+        self.use_stage_collision = False
+        self._eps = 0.8  # 여유폭
+
         #좌우 눌려있나 확인하는
         self.right_pressed = False
         self.left_pressed = False
@@ -530,7 +535,7 @@ class Character:
         
     def update(self):
         #생각해봤는데 상태랑 상관없이 무조건 매 프레임 돌아야 하는 애들은 그냥 한번에 여기서 계산하기로 하는게 편하지 않을까?
-
+        self.prev_x, self.prev_y = self.x, self.y # 이전 위치 저장
         # 3초 예약 도달 체크
         if self.is_attack_reserved and self.attack_fire_time is not None:
             now = get_time()
@@ -574,12 +579,12 @@ class Character:
         self.y += self.vy * dt
 
         # 바닥
-        if self.y <= self.ground_y:
-            self.y = self.ground_y
-            self.vy = 0
-            # 공중 상태일 때만 LAND 보내기
-            if self.state_machine.cur_state in (self.JUMP_UP, self.JUMP_FALL):
-                self.state_machine.handle_state_event(('LAND', None))
+        if not getattr(self, 'use_stage_collision', False):
+            if self.y <= self.ground_y:
+                self.y = self.ground_y
+                self.vy = 0
+                if self.state_machine.cur_state in (self.JUMP_UP, self.JUMP_FALL):
+                    self.state_machine.handle_state_event(('LAND', None))
 
         self.state_machine.update()
 
@@ -624,6 +629,8 @@ class Character:
                 xs = [p[0] for p in self._shield_obb]
                 ys = [p[1] for p in self._shield_obb]
                 self._shield_aabb = (min(xs), min(ys), max(xs), max(ys))
+
+
 
 
     def draw(self):
@@ -712,6 +719,9 @@ class Character:
     def handle_collision(self, group, other):
         if group == 'char:sword' and self.weapon is None and getattr(other, 'state', '') == 'GROUND':
             self.pickup_sword(other)
+            return
+        if group == 'char:stage':
+            self._solve_stage_collision(other)  # other = StageColliders
             return
 
         if group == 'attack_sword:char':
@@ -876,4 +886,7 @@ class Character:
         # 아니면 몸통 AABB의 네 꼭짓점을 반환(기존 충돌 동작 유지)
         l, b, r, t = self.get_bb()
         return ((l, b), (r, b), (r, t), (l, t))
+
+    def _solve_stage_collision(self, other):
+        pass
 
