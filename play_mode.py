@@ -5,6 +5,8 @@ from grass import Grass
 from sword import Sword
 
 from static_image_layer import StaticImageLayer
+from stage_colliders import StageColliders
+
 
 running = True
 character = None
@@ -49,6 +51,9 @@ def init():
 
     boss_stage_layer = StaticImageLayer('boss stage.png', fit='cover') # 혹은 'boss_stage.png'
     game_world.add_object(boss_stage_layer, 1)
+
+    stage_colliders = StageColliders(boss_stage_layer, debug=True)
+    game_world.add_object(stage_colliders, 1)
 
 
 
