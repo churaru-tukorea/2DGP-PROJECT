@@ -23,7 +23,7 @@ class Sword:
 
     def update(self):
         try:
-            if self.state == 'EQUIPPED' and self.owner:
+            if self.state == 'EQUIPPED' and self.owner and getattr(self.owner, 'action', '') == 'attack_fire':
                 # 중복 방지: 먼저 제거 후 한 번만 추가
                 game_world.remove_collision_object_once(self, 'attack_sword:char')
                 game_world.add_collision_pair('attack_sword:char', self, None)
