@@ -108,6 +108,11 @@ class Sword:
       self.x = random.randint(40, cw - 40)
       self.state = 'GROUND'
       self.detach()
+      try:
+        import game_world
+        game_world.remove_collision_object_once(self, 'attack_sword:char')
+      except:
+        pass
 
     def _compute_equipped_pose(self):
         owner = self.owner

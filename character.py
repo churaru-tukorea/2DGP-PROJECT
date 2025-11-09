@@ -645,6 +645,26 @@ class Character:
     def handle_collision(self, group, other):
         if group == 'char:sword' and self.weapon is None and getattr(other, 'state', '') == 'GROUND':
             self.pickup_sword(other)
+        if group == 'attack_sword:char':
+            sword = other
+
+            # 자기 칼이면 무시
+            if getattr(sword, 'owner', None) is self:
+                return
+
+            # 패링 중이면 칼을 튕겨서 초기 상태로
+            if getattr(self, 'action', '') == 'parry_hold' or getattr(self, 'parry_active', False):
+                try:
+                    sword.reset_to_ground_random()
+                finally:
+                    import game_world
+                    game_world.remove_collision_object_once(sword, 'attack_sword:char')  # 같은 프레임 재충돌 방지
+                return
+
+            # 그 외엔 즉사(월드에서 제거)
+            import game_world
+            game_world.remove_object(self)
+            return
 
     def pickup_sword(self, other):
             if self.weapon:  # 이미 들고 있으면 무시
