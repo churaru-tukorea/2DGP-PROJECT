@@ -695,8 +695,8 @@ class Character:
         self.image.clip_draw(sl, sb, sw, sh, sx, sy, sdw, sdh)
 
     def get_bb(self):
-            halfw = self.draw_w // 2
-            halfh = self.draw_h // 2
+            halfw = self.draw_w // 2 -8
+            halfh = self.draw_h // 2-8
             return self.x - halfw, self.y - halfh, self.x + halfw, self.y + halfh
 
     def handle_collision(self, group, other):
