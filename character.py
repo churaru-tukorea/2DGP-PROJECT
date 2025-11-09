@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from pico2d import load_image, get_time, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_RIGHT, SDLK_LEFT, SDLK_a, \
-    get_canvas_height, draw_rectangle, load_font
+    get_canvas_height, draw_rectangle, load_font, draw_line
 from sdl2 import SDLK_j, SDLK_p, SDLK_k
 
 import os
@@ -845,6 +845,12 @@ class Character:
         if self._shield_aabb:
             l, b, r, t = self._shield_aabb
             draw_rectangle(l, b, r, t)
+
+        if self._shield_obb:
+            for i in range(4):
+                x1, y1 = self._shield_obb[i]
+                x2, y2 = self._shield_obb[(i + 1) % 4]
+                draw_line(x1, y1, x2, y2)
 
     def get_obb(self):
         # 패링 중이면 방패 OBB만 충돌 대상으로 사용
