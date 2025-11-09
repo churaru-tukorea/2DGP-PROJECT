@@ -3,6 +3,7 @@ from pico2d import load_image, get_canvas_width, draw_rectangle, draw_line
 import math
 from sword_poses import POSE, LEFT_FLIP_RULE, PIVOT_FROM_CENTER_PX
 from character import Character
+import game_world
 
 class Sword:
 
@@ -21,7 +22,15 @@ class Sword:
         self.owner = None
 
     def update(self):
-        pass
+        try:
+            if self.state == 'EQUIPPED' and self.owner:
+                # 중복 방지: 먼저 제거 후 한 번만 추가
+                game_world.remove_collision_object_once(self, 'attack_sword:char')
+                game_world.add_collision_pair('attack_sword:char', self, None)
+            else:
+                game_world.remove_collision_object_once(self, 'attack_sword:char')
+        except Exception:
+            pass
 
     def draw(self):
         l, b, r, t = self.get_bb()
