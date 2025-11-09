@@ -4,6 +4,7 @@ from pico2d import load_image, get_time, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDL
     get_canvas_height, draw_rectangle, load_font
 from sdl2 import SDLK_j, SDLK_p, SDLK_k
 
+import os
 
 from pico2d import (SDL_KEYDOWN, SDL_KEYUP,
                     SDLK_LEFT, SDLK_RIGHT, SDLK_j, SDLK_k, SDLK_p,
@@ -331,6 +332,10 @@ class Character:
             self.keymap = keymap
 
 
+        # 플레이어별 라벨 색
+        self.tag_color = (255, 255, 0) if self.pid == 1 else (0, 255, 255)
+
+
         self.next_idle_flip = get_time() + 0.125  # idle을 넘기는 기준의 시간이 되어주는
 
         self.shield_image = load_image('real_shield.png')  # 방패를
@@ -359,7 +364,7 @@ class Character:
         self.vx = 0.0
         self.vy = 0.0
         self.move_speed = 250.0     # px/s
-        self.jump_speed = 500.0     # px/s 위로
+        self.jump_speed = 700.0     # px/s 위로
         self.gravity = -1500.0      # px/s^2
         self.max_jump_hold = 0.18   # 버튼 홀드로 더 올라갈 수 있는 시간(초)
 
@@ -579,6 +584,11 @@ class Character:
         self._draw_shield_if_parry()
         self.draw_sweat_overlay() # 캐릭터 관련된걸 그리고 그 위에 땀방울을 그리는
         draw_rectangle(*self.get_bb())
+
+        c1 = (255, 255, 0) if self.pid == 1 else (0, 255, 255)
+        hx1, hy1 = self.x - 8, self.y + self.draw_h // 2 + 18
+        hx2, hy2 = self.x + 8, self.y + self.draw_h // 2 + 30
+        draw_rectangle(hx1, hy1, hx2, hy2)
 
     def draw_sweat_overlay(self):
         # 예약 중이 아니면 표시 안 함
