@@ -3,7 +3,7 @@
 #world[2]: 2번 레이어
 
 
-world = [[], [], []] # 게임 내 객체들을 담는 리스트
+world = [[], [], [],[]] # 게임 내 객체들을 담는 리스트
 
 def add_object(o, depth = 0): # 게임 월드의 객체를 추가하는 함수
     world[depth].append(o)
