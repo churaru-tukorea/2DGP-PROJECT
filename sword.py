@@ -1,5 +1,5 @@
 import random
-from pico2d import load_image, get_canvas_width, draw_rectangle
+from pico2d import load_image, get_canvas_width, draw_rectangle, draw_line
 import math
 from sword_poses import POSE, LEFT_FLIP_RULE, PIVOT_FROM_CENTER_PX
 from character import Character
@@ -26,6 +26,10 @@ class Sword:
     def draw(self):
         l, b, r, t = self.get_bb()
         draw_rectangle(l, b, r, t)
+        cs = self.get_obb()
+        for i in range(4):
+             x1,y1 = cs[i]; x2,y2 = cs[(i+1)%4]
+             draw_line(x1,y1, x2,y2)
 
         if self.state == 'GROUND':
             self.image.clip_composite_draw(0, 0, self.image.w, self.image.h,
@@ -44,6 +48,19 @@ class Sword:
             draw_rectangle(hx - 2, hy - 2, hx + 2, hy + 2)
             return
 
+    def get_obb(self):
+        if self.state == 'EQUIPPED' and self.owner:
+            cx, cy, rad, _flip, dw, dh, *_ = self._compute_equipped_pose()
+            hw, hh = dw*0.5, dh*0.5
+            c, s = math.cos(rad), math.sin(rad)
+            return (
+                (cx +(+hw)*c -(+hh)*s, cy +(+hw)*s +(+hh)*c),
+                (cx +(+hw)*c -(-hh)*s, cy +(+hw)*s +(-hh)*c),
+                (cx +(-hw)*c -(-hh)*s, cy +(-hw)*s +(-hh)*c),
+                (cx +(-hw)*c -(+hh)*s, cy +(-hw)*s +(+hh)*c),
+            )
+        l,b,r,t = self.get_bb()
+        return ((l,b),(r,b),(r,t),(l,t))
 
     def get_bb(self):
         if self.state == 'GROUND':
