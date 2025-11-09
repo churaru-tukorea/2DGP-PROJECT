@@ -652,6 +652,7 @@ class Character:
             self.weapon = other
             game_world.remove_collision_object_once(other, 'char:sword')
             print('무기 장착 (월드 유지, EQUIPPED)')
+            other.state = 'EQUIPPED'
             return
 
 

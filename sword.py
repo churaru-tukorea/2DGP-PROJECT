@@ -1,7 +1,7 @@
 import random
 from pico2d import load_image, get_canvas_width, draw_rectangle
 import math
-
+from sword_poses import POSE, LEFT_FLIP_RULE, PIVOT_FROM_CENTER_PX
 
 class Sword:
 
@@ -23,20 +23,41 @@ class Sword:
         pass
 
     def draw(self):
-        if self.state != 'GROUND': return
-        # 바닥에 박힌 느낌으로 약간 기울여 그림(연출)
-        self.image.clip_composite_draw(0, 0, self.image.w, self.image.h,
-                                       3.14159, '', self.x, self.y,
-                                       self.draw_w, self.draw_h)
-        draw_rectangle(*self.get_bb())
+        l, b, r, t = self.get_bb()
+        draw_rectangle(l, b, r, t)
+
+        if self.state == 'GROUND':
+            self.image.clip_composite_draw(0, 0, self.image.w, self.image.h,
+                                           3.14159, '', self.x, self.y,
+                                           self.draw_w, self.draw_h)
+            return
+
+        if self.state == 'EQUIPPED' and self.owner:
+            pose = self._compute_equipped_pose()
+            if not pose:
+                return
+            cx, cy, rad, flip, dw, dh, hx, hy, aabb = pose
+            self.image.clip_composite_draw(0, 0, self.image.w, self.image.h,
+                                           rad, flip, cx, cy, dw, dh)
+            # 손 지점 디버그(작은 점)
+            draw_rectangle(hx - 2, hy - 2, hx + 2, hy + 2)
+            return
+
 
     def get_bb(self):
-        if self.state != 'GROUND':
-            return -9999,-9999,-9998,-9998
-        half_w = self.draw_w * 0.5
-        half_h = self.draw_h * 0.5
+        if self.state == 'GROUND':
+            half_w = self.draw_w * 0.5
+            half_h = self.draw_h * 0.5
+            return self.x - half_w, self.y - half_h, self.x + half_w, self.y + half_h
 
-        return self.x - half_w, self.y - half_h, self.x + half_w, self.y + half_h
+        # EQUIPPED: 현재 그리는 크기/회전에 맞춘 AABB
+        if self.state == 'EQUIPPED' and self.owner:
+            pose = self._compute_equipped_pose()
+            if pose:
+                _, _, _, _, _, _, _, _, aabb = pose
+                return aabb
+
+        return -9999, -9999, -9998, -9998
 
     def handle_collision(self, group, other):
         if group == 'char:sword' and self.state == 'GROUND':
@@ -61,3 +82,6 @@ class Sword:
       self.x = random.randint(40, cw - 40)
       self.state = 'GROUND'
       self.detach()
+
+    def _compute_equipped_pose(self):
+        pass
