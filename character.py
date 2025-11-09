@@ -575,7 +575,7 @@ class Character:
 
     def draw(self):
         self.state_machine.draw()
-        self._draw_weapon_if_any()# 무기 그려야지
+       # self._draw_weapon_if_any()# 무기 그려야지
         self._draw_shield_if_parry()
         self.draw_sweat_overlay() # 캐릭터 관련된걸 그리고 그 위에 땀방울을 그리는
 
@@ -652,6 +652,7 @@ class Character:
             self.weapon = other
             game_world.remove_collision_object_once(other, 'char:sword')
             print('무기 장착 (월드 유지, EQUIPPED)')
+            other.attach_to(self)
             other.state = 'EQUIPPED'
             return
 

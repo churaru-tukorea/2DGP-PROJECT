@@ -2,6 +2,7 @@ import random
 from pico2d import load_image, get_canvas_width, draw_rectangle
 import math
 from sword_poses import POSE, LEFT_FLIP_RULE, PIVOT_FROM_CENTER_PX
+from character import Character
 
 class Sword:
 
@@ -77,11 +78,67 @@ class Sword:
 
 
     def reset_to_ground_random(self):
-    # "처음 생성될 때처럼" 랜덤 X로 바닥 리스폰
       cw = get_canvas_width()
       self.x = random.randint(40, cw - 40)
       self.state = 'GROUND'
       self.detach()
 
     def _compute_equipped_pose(self):
-        pass
+        owner = self.owner
+        info = owner._current_frame_info()
+        if not info:
+            return None
+        act, idx, (fw, fh) = info
+
+        lst = POSE.get(act)
+        if not lst or idx >= len(lst):
+            return None
+        ox_src, oy_src = lst[idx]['offset_src_px']
+        deg = lst[idx]['deg']
+
+
+        sx = owner.draw_w / float(max(fw,1))
+        sy = owner.draw_h / float(max(fh,1))
+
+
+        if owner.face_dir == 1:
+            hx = owner.x - owner.draw_w * 0.5 + ox_src * sx
+            deg_prime, flip = deg, ''
+        else:
+            hx = owner.x + owner.draw_w * 0.5 - ox_src * sx
+            if LEFT_FLIP_RULE == 'NEGATE':
+                deg_prime, flip = -deg, 'h'
+            elif LEFT_FLIP_RULE == 'KEEP':
+                deg_prime, flip = deg, 'h'
+            else:  # 'ADD_PI'
+                deg_prime, flip = deg + 180.0, 'h'
+        hy = owner.y - owner.draw_h * 0.5 + oy_src * sy
+
+
+        scale = owner.draw_h / 50.0
+        dw, dh = int(self.image.w * scale), int(self.image.h * scale)
+        dx, dy = PIVOT_FROM_CENTER_PX
+        dx *= scale; dy *= scale
+        rad = math.radians(deg_prime)
+        rx = dx * math.cos(rad) - dy * math.sin(rad)
+        ry = dx * math.sin(rad) + dy * math.cos(rad)
+
+
+        cx = hx + rx
+        cy = hy + ry
+
+
+        aabb = self._aabb_from_center(cx, cy, dw, dh, rad)
+        return cx, cy, rad, flip, dw, dh, hx, hy, aabb
+
+
+    def _aabb_from_center(cx, cy, w, h, rad):
+        hw, hh = w*0.5, h*0.5
+        c, s = math.cos(rad), math.sin(rad)
+        pts = []
+        for sx, sy in ((+hw,+hh),(+hw,-hh),(-hw,+hh),(-hw,-hh)):
+            wx = cx + sx*c - sy*s
+            wy = cy + sx*s + sy*c
+            pts.append((wx, wy))
+        xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
+        return min(xs), min(ys), max(xs), max(ys)
