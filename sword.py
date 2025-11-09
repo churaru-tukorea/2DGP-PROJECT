@@ -131,7 +131,7 @@ class Sword:
         aabb = self._aabb_from_center(cx, cy, dw, dh, rad)
         return cx, cy, rad, flip, dw, dh, hx, hy, aabb
 
-
+    @staticmethod
     def _aabb_from_center(cx, cy, w, h, rad):
         hw, hh = w*0.5, h*0.5
         c, s = math.cos(rad), math.sin(rad)
