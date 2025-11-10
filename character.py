@@ -877,7 +877,7 @@ class Character:
             for i in range(4):
                 x1, y1 = self._shield_obb[i]
                 x2, y2 = self._shield_obb[(i + 1) % 4]
-                draw_line(x1, y1, x2, y2)
+                #draw_line(x1, y1, x2, y2)
 
     def get_obb(self):
         # 패링 중이면 방패 OBB만 충돌 대상으로 사용

@@ -43,7 +43,7 @@ class Sword:
         cs = self.get_obb()
         for i in range(4):
              x1,y1 = cs[i]; x2,y2 = cs[(i+1)%4]
-             draw_line(x1,y1, x2,y2)
+             #draw_line(x1,y1, x2,y2)
 
         if self.state == 'GROUND':
             self.image.clip_composite_draw(0, 0, self.image.w, self.image.h,
