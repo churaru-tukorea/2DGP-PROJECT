@@ -83,11 +83,12 @@ class Idle:
 
     def draw(self):
 
-        now = get_time()
+        STEP = 0.125
+        self.boy.idle_timer += game_framework.frame_time
 
-        while now >= self.boy.next_idle_flip:
+        while self.boy.idle_timer >= STEP:
             self.boy.anim_frame ^= 1
-            self.boy.next_idle_flip += 0.125
+            self.boy.idle_timer -= STEP
 
         l, b, w, h = sprite[ACTION['idle']][self.boy.anim_frame]
         # 방향 적용
@@ -113,12 +114,11 @@ class Move:
 
     def draw(self):
 
-        now = get_time()
-
         STEP = 0.125
-        while now >= self.boy.next_move_flip:
-            self.boy.move_frame = (self.boy.move_frame + 1) % 10  # 0~9
-            self.boy.next_move_flip += STEP
+        self.boy.move_timer += game_framework.frame_time
+        while self.boy.move_timer >= STEP:
+            self.boy.move_frame = (self.boy.move_frame + 1) % 10
+            self.boy.move_timer -= STEP
 
         l, b, w, h = sprite[ACTION['move']][self.boy.move_frame]
         # 방향 적용
@@ -547,6 +547,7 @@ class Character:
                 air = getattr(self, 'y', 0) > getattr(self, 'ground_y', 0)
                 self.state_machine.handle_state_event(('ATTACK_READY', {'air': air}))
 
+        now = get_time()
         dt = game_framework.frame_time
         self.last_time = now
 
