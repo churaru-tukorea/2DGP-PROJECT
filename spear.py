@@ -5,31 +5,29 @@ from spear_poses import POSE, LEFT_FLIP_RULE, PIVOT_FROM_CENTER_PX
 
 class Spear:
     def __init__(self, ground_y: int, x: int | None = None):
-        # 상태: GROUND / EQUIPPED / FLYING
-        def __init__(self, ground_y: int, x: int | None = None):
-            self.image = load_image('spear.png')
-            cw = get_canvas_width()
-            self.x = x if x is not None else random.randint(40, cw - 40)
-            self.ground_y = ground_y
+        self.image = load_image('spear.png')
+        cw = get_canvas_width()
+        self.x = x if x is not None else random.randint(40, cw - 40)
+        self.ground_y = ground_y
 
-            self.draw_w = 20
-            self.draw_h = 80
-            self.embed_px = 10
-            self.y = self.ground_y + (self.draw_h - self.embed_px) * 0.5
+        self.draw_w = 20
+        self.draw_h = 80
+        self.embed_px = 10
+        self.y = self.ground_y + (self.draw_h - self.embed_px) * 0.5
 
-            self.state = 'GROUND'
-            self.owner = None
+        self.state = 'GROUND'
+        self.owner = None
 
-            # 투척 물리
-            self.vx = 0.0
-            self.vy = 0.0
-            self.rad = math.radians(0.0)
-            self.speed = 1200.0  # 매우 빠르게
-            self.gravity = -900.0
-            self.life_time = 1.2
-            self.spawn_time = get_time()
+        # 투척 물리
+        self.vx = 0.0
+        self.vy = 0.0
+        self.rad = math.radians(0.0)
+        self.speed = 1200.0  # 매우 빠르게
+        self.gravity = -900.0
+        self.life_time = 1.2
+        self.spawn_time = get_time()
 
-            self._parry_lock = False  # 동일 프레임 중복 히트 방지용(검과 동일 패턴)
+        self._parry_lock = False  # 동일 프레임 중복 히트 방지
 
     def attach_to(self, owner):
         self.state = 'EQUIPPED'
