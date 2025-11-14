@@ -3,13 +3,19 @@ from character import Character
 import game_world
 from grass import Grass
 from sword import Sword
+import random
 
 from static_image_layer import StaticImageLayer
 from stage_colliders import StageColliders
+from items import SpeedClockItem, AttackClockItem
 
 
 running = True
 character = None
+stage_colliders = None
+
+item_spawn_time = None   # 아이템이 처음 나올 시간
+item_spawned = False     # 이미 한 번이라도 스폰됐는지 여부
 
 
 def handle_events():
@@ -31,11 +37,12 @@ def handle_events():
 
 
 def init():
-
     global p1
     global p2
     global running
     global sword
+    global stage_colliders
+    global item_spawn_time, item_spawned
 
 
     running = True
