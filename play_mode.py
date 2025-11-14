@@ -43,6 +43,7 @@ def init():
     global sword
     global stage_colliders
     global item_spawn_time, item_spawned
+    global item_spawn_interval
 
 
     running = True
@@ -93,9 +94,9 @@ def init():
     game_world.add_collision_pair('attack_sword:char', None, p1)
     game_world.add_collision_pair('attack_sword:char', None, p2)
 
-    # 아이템 스폰 타이머: 게임 시작 후 10초 뒤 한 번
-    item_spawn_time = get_time() + 10.0
-    item_spawned = False
+    # 아이템 스폰 타이머: 게임 시작 후 10초 뒤 한 번(테스트라 2초)
+    item_spawn_interval = 2.0
+    item_spawn_time = get_time() + item_spawn_interval
 
 
 
@@ -103,7 +104,7 @@ def init():
 
 
 def update():
-    global item_spawn_time, item_spawned, stage_colliders
+    global item_spawn_time, item_spawned, stage_colliders, item_spawn_interval
 
     now = get_time()
 
@@ -128,7 +129,7 @@ def update():
                 spawn_x = random.uniform(L + margin_x, R - margin_x)
 
             # 아이템이 바닥에 딱 붙도록(센터 = 플랫폼 위 + 반높이)
-            spawn_y = T + item_h * 0.5
+            spawn_y = T + item_h * 0.2
 
             # 두 종류 중 하나를 랜덤 선택
             if random.random() < 0.5:
@@ -139,8 +140,11 @@ def update():
             game_world.add_object(item, 2)
             # char:item 그룹의 반대편(아이템 쪽)에 등록
             game_world.add_collision_pair('char:item', None, item)
+        item_spawn_time = now + item_spawn_interval
 
-            item_spawned = True
+
+           #item_spawned = True
+
 
     game_world.update()
     game_world.handle_collisions()
