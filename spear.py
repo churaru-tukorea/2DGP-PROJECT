@@ -10,7 +10,7 @@ class Spear:
         self.x = x if x is not None else random.randint(40, cw - 40)
         self.ground_y = ground_y
 
-        self.draw_w = 30
+        self.draw_w = 40
         self.draw_h = 80
         self.embed_px = 10
         self.y = self.ground_y + (self.draw_h - self.embed_px) * 0.5
@@ -27,12 +27,17 @@ class Spear:
         self.life_time = 1.2
         self.spawn_time = get_time()
 
+        self.ignore_char = None
+        self.ignore_until = 0.0
+
         self._parry_lock = False  # 동일 프레임 중복 히트 방지
 
     def handle_collision(self, group, other):
         # 캐릭터 쪽에서 대부분 처리함. 창 쪽은 특별히 할 일 없음.
         if group == 'attack_spear:char':
-            # 예: 상대가 저스트 패링 상태면 즉시 리셋
+            # 던진 직후 자기 소유자와 충돌 무시
+            if (other is self.ignore_char) and (get_time() <= self.ignore_until):
+                return
             if getattr(other, 'parry_active', False):
                 self._parry_lock = True
                 self.reset_to_ground_random()
@@ -50,15 +55,25 @@ class Spear:
 #던져지는
     def throw_from_owner(self):
         if self.state != 'EQUIPPED' or not self.owner: return
+        # 던지기 시작 위치 계산
         cx, cy, rad, _, dw, dh, *_ = self._compute_equipped_pose()
+
+        prev_owner = self.owner  # ← 던지기 직전 소유자 백업
+
         self.state = 'FLYING'
         self.spawn_time = get_time()
-        dir_x = 1 if self.owner.face_dir == 1 else -1
+        dir_x = 1 if prev_owner.face_dir == 1 else -1
         self.vx = self.speed * dir_x
-        self.vy = +150.0
-        self.rad = 0.0
+        self.vy = 0
+        self.rad = rad
         self.x, self.y = cx, cy
-        self.detach()
+
+        self.detach()  # owner=None
+
+        # 이 구간 동안은 '바로 던진 사람'과의 충돌 무시
+        self.ignore_char = prev_owner
+        self.ignore_until = get_time() + 0.12
+
 #검처럼 땅에 랜덤하게 박히는
     def reset_to_ground_random(self):
         cw = get_canvas_width()
@@ -87,15 +102,14 @@ class Spear:
 
         if self.state == 'FLYING':
             dt = game_framework.frame_time
-            self.vy += self.gravity * dt
+            #self.vy += self.gravity * dt
             self.x += self.vx * dt
-            self.y += self.vy * dt
+            #self.y += self.vy * dt
 
             # 수명/화면 밖 → 빗나감 처리
             cw = get_canvas_width()
             if (now - self.spawn_time > self.life_time or
-                    self.x < -100 or self.x > cw + 100 or
-                    self.y < -200):
+                    self.x < -100 or self.x > cw + 100):
                 self.reset_to_ground_random()
 
         pass
@@ -199,7 +213,8 @@ class Spear:
         rad = math.radians(deg_prime)
         rx = dx * math.cos(rad) - dy * math.sin(rad)
         ry = dx * math.sin(rad) + dy * math.cos(rad)
-        cx, cy = hx + rx, hy + ry
+
+        cx, cy = hx - rx, hy - ry
 
         return cx, cy, rad, flip, dw, dh, hx, hy
 

@@ -71,6 +71,7 @@ def i_down(e):
     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_i
 
 
+RELEASE_FRAME = 5  # ← 네가 원하는 프레임 인덱스
 
 class Idle:
     def __init__(self, boy):
@@ -303,8 +304,8 @@ class Attack_Spear:
 
     def do(self): pass
     def draw(self):
+
         now = get_time()
-        # Y 고정
         self.boy.y = self._anchor_y
 
         while now >= self._next and self.boy.attack_frame < 6:
@@ -312,7 +313,7 @@ class Attack_Spear:
             self._next += self._step
 
         # release frame에서 실제 투척
-        if (not self._thrown) and self.boy.attack_frame >= 3:
+        if (not self._thrown) and self.boy.attack_frame == RELEASE_FRAME:
             w = getattr(self.boy, 'weapon', None)
             if w and hasattr(w, 'throw_from_owner'):
                 w.throw_from_owner()
@@ -662,8 +663,8 @@ class Character:
                 self.attack_fire_time = None
                 # 공중/지상 판단
                 air = getattr(self, 'y', 0) > getattr(self, 'ground_y', 0)
-                ev_name = 'ATTACK_READY_SPEAR' if (
-                            getattr(self, 'weapon', None).__class__.__name__ == 'Spear') else 'ATTACK_READY'
+                ev_name = 'ATTACK_SPEAR_READY' if (
+                        getattr(self, 'weapon', None).__class__.__name__ == 'Spear') else 'ATTACK_READY'
                 self.state_machine.handle_state_event((ev_name, {'air': air}))
 
         if self.is_spear_attack_reserved and self.spear_attack_time is not None:
@@ -671,8 +672,8 @@ class Character:
                 self.is_spear_attack_reserved = False
                 self.spear_attack_time = None
                 air = getattr(self, 'y', 0) > getattr(self, 'ground_y', 0)
-                ev_name = 'ATTACK_READY_SPEAR' if (
-                            getattr(self, 'weapon', None).__class__.__name__ == 'Spear') else 'ATTACK_READY'
+                ev_name = 'ATTACK_SPEAR_READY' if (
+                        getattr(self, 'weapon', None).__class__.__name__ == 'Spear') else 'ATTACK_READY'
                 self.state_machine.handle_state_event((ev_name, {'air': air}))
 
         now = get_time()
@@ -906,6 +907,9 @@ class Character:
 
         if group == 'attack_spear:char':
             spear = other
+            if (getattr(spear, 'ignore_char', None) is self) and (get_time() <= getattr(spear, 'ignore_until', 0.0)):
+                return
+
             if getattr(spear, 'owner', None) is self:
                 return  # 자기 창 무시
 

@@ -4,13 +4,13 @@ from sprite_tuples import ACTION, sprite
 # 칼이랑 동일하게: 왼쪽일 때 각도 부호 뒤집기
 LEFT_FLIP_RULE = 'NEGATE'
 # 무기 이미지 중심 기준, 손잡이 끝까지의 오프셋 (px) – sword와 동일로 시작
-PIVOT_FROM_CENTER_PX = (-1.0, 12.0)
+PIVOT_FROM_CENTER_PX = (-1.0, -100.0)
 
 POSE = {
     # idle / move / parry_hold 는 일단 sword 기준 복사
     'idle': [
-        {'offset_src_px': (19.47, 7.07), 'deg': -30.0},
-        {'offset_src_px': (19.47, 7.07), 'deg': -30.0},
+        {'offset_src_px': (18.47, 7.07), 'deg': -10.0},
+        {'offset_src_px': (18.47, 7.07), 'deg': -10.0},
     ],
 
     'move': [
