@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from pico2d import load_image, get_time, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_RIGHT, SDLK_LEFT, SDLK_a, \
-    get_canvas_height, draw_rectangle, load_font, draw_line
+    get_canvas_height, draw_rectangle, load_font, draw_line,get_canvas_width
 from sdl2 import SDLK_j, SDLK_p, SDLK_k, SDLK_i
 import game_world
 import os
@@ -476,6 +476,10 @@ class Character:
 
         self.is_spear_attack_reserved = False
         self.spear_attack_time = None
+
+        self.canvas_w = get_canvas_width()  # 상단 타이머 UI 위치 계산용
+        self.weapon_pick_time = 0.0  # 무기 집은 시각
+        self.weapon_time_limit = 30.0  # 제한 시간(초)
 
 
         # 시작 y도 이걸로 맞춰놓자
