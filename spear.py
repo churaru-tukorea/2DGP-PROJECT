@@ -30,6 +30,9 @@ class Spear:
         self.ignore_char = None
         self.ignore_until = 0.0
 
+        self.col_w = 2  # ← 충돌 전용 폭
+        self.col_h = self.draw_h-10  # 충돌 높이는 보이는 높이와 같게
+
         self._parry_lock = False  # 동일 프레임 중복 히트 방지
 
     def handle_collision(self, group, other):
@@ -81,6 +84,9 @@ class Spear:
     def reset_to_ground_random(self):
         cw = get_canvas_width()
         self.x = random.randint(40, cw - 40)
+        # ★ 빠졌던 줄: GROUND로 돌아갈 때는 y도 바닥 기준으로 재설정
+        self.y = self.ground_y + (self.draw_h - self.embed_px) * 0.5
+
         self.state = 'GROUND'
         self.vx = self.vy = 0.0
         self.rad = math.radians(180.0)
@@ -160,16 +166,19 @@ class Spear:
         return min(xs), min(ys), max(xs), max(ys)
 
     def get_obb(self):
+        # 중심/각도는 그대로 가져오되,
+        # 폭은 col_w(얇게), 높이는 보이는 dh를 사용
         if self.state == 'EQUIPPED' and self.owner:
             cx, cy, rad, _flip, dw, dh, *_ = self._compute_equipped_pose()
+            cw, ch = self.col_w, dh
         elif self.state == 'FLYING':
             cx, cy, rad = self.x, self.y, self.rad
-            dw, dh = self.draw_w, self.draw_h
-        else:
+            cw, ch = self.col_w, self.draw_h
+        else:  # GROUND
             cx, cy, rad = self.x, self.y, math.radians(180.0)
-            dw, dh = self.draw_w, self.draw_h
+            cw, ch = self.col_w, self.draw_h
 
-        hw, hh = dw * 0.5, dh * 0.5  # hh_scale 제거 (1.0)
+        hw, hh = cw * 0.5, ch * 0.5
         c, s = math.cos(rad), math.sin(rad)
         return (
             (cx + (+hw) * c - (+hh) * s, cy + (+hw) * s + (+hh) * c),
