@@ -10,7 +10,7 @@ from stage_colliders import StageColliders
 from items import SpeedClockItem, AttackClockItem
 import game_framework
 import config
-
+from spear import Spear
 
 
 running = True
@@ -38,7 +38,7 @@ def handle_events():
             running = False
 
         # 플레이 중에도 i를 누르면 무기 선택 모드로 넘어감
-        elif event.type == SDL_KEYDOWN and event.key == SDLK_i:
+        elif event.type == SDL_KEYDOWN and event.key == SDLK_F1:
             import item_mode
             game_framework.change_mode(item_mode)
 
@@ -103,15 +103,15 @@ def init():
     elif weapon_mode == 'spear':
         # 아직 spear는 구현 전이라 이렇게.
         print('[play_mode] spear 모드는 아직 구현 전입니다. 일단 sword 모드로 동작합니다.')
-        sword = Sword(2)
-        game_world.add_object(sword, 2)
+        spear = Spear(2)
+        game_world.add_object(spear, 2)
 
-        game_world.add_collision_pair('char:sword', p1, None)
-        game_world.add_collision_pair('char:sword', p2, None)
-        game_world.add_collision_pair('char:sword', None, sword)
+        game_world.add_collision_pair('char:spear', p1, None)
+        game_world.add_collision_pair('char:spear', p2, None)
+        game_world.add_collision_pair('char:spear', None, spear)
 
-        game_world.add_collision_pair('attack_sword:char', None, p1)
-        game_world.add_collision_pair('attack_sword:char', None, p2)
+        game_world.add_collision_pair('char:spear', None, spear)
+        game_world.add_collision_pair('attack_spear:char', None, p2)
 
     # 아이템(시계) 충돌 그룹 – 플레이어 쪽 먼저
     game_world.add_collision_pair('char:item', p1, None)
