@@ -294,7 +294,8 @@ class Attack_Spear:
     def enter(self, ev=None):
         self.boy.action = "attack_spear"
         self.boy.attack_frame = 0
-        self._step = 1.0 / 20.0  # 더 빠른 프레임 진행
+        self._step = 2.0
+        #self._step = 1.0 / 20.0  # 더 빠른 프레임 진행
         self._next = get_time() + self._step
         self._thrown = False
         self._anchor_y = self.boy.y

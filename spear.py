@@ -121,6 +121,14 @@ class Spear:
         l, b, r, t = self.get_bb()
         draw_rectangle(l, b, r, t)
 
+        if self.state == 'EQUIPPED' and self.owner:
+            if self.owner.action in ('jump_up', 'jump_fall', 'jump_land'):
+                return
+            cx, cy, rad, flip, dw, dh, hx, hy = self._compute_equipped_pose()
+            self.image.clip_composite_draw(0, 0, self.image.w, self.image.h, rad, flip, cx, cy, dw, dh)
+            draw_rectangle(hx - 2, hy - 2, hx + 2, hy + 2)
+            return
+
         if self.state == 'GROUND':
             self.image.clip_composite_draw(
                 0, 0, self.image.w, self.image.h,
@@ -141,6 +149,7 @@ class Spear:
                 self.rad, '', self.x, self.y, self.draw_w, self.draw_h
             )
 
+
     def get_bb(self):
         if self.state == 'GROUND':
             hw, hh = self.draw_w * 0.5, self.draw_h * 0.5
@@ -149,6 +158,7 @@ class Spear:
         xs = [p[0] for p in self.get_obb()]
         ys = [p[1] for p in self.get_obb()]
         return min(xs), min(ys), max(xs), max(ys)
+
     def get_obb(self):
         if self.state == 'EQUIPPED' and self.owner:
             cx, cy, rad, _flip, dw, dh, *_ = self._compute_equipped_pose()
@@ -156,12 +166,10 @@ class Spear:
             cx, cy, rad = self.x, self.y, self.rad
             dw, dh = self.draw_w, self.draw_h
         else:
-            l, b, r, t = self.get_bb()
-            return ((l, b), (r, b), (r, t), (l, t))
+            cx, cy, rad = self.x, self.y, math.radians(180.0)
+            dw, dh = self.draw_w, self.draw_h
 
-            # Y축 판정 조금 두껍게
-        hh_scale = 1.6
-        hw, hh = dw * 0.5, dh * 0.5 * hh_scale
+        hw, hh = dw * 0.5, dh * 0.5  # hh_scale 제거 (1.0)
         c, s = math.cos(rad), math.sin(rad)
         return (
             (cx + (+hw) * c - (+hh) * s, cy + (+hw) * s + (+hh) * c),
