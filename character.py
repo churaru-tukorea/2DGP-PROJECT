@@ -353,11 +353,46 @@ class Parry_Hold:
         self.boy._parry_hold_until = now + dur  # 유지시간
 
     def exit(self, event):
+        # 유지시간 타이머 정리
         self.boy._parry_hold_until = None
+
+        try:
+            is_p_up = (
+                    isinstance(event, tuple) and event[0] == 'INPUT'
+                    and getattr(event[1], 'type', None) == SDL_KEYUP
+                    and getattr(event[1], 'key', None) == SDLK_p
+            )
+        except:
+            is_p_up = False
+
+        try:
+            is_move_break = (
+                isinstance(event, tuple) and event[0] == 'INPUT'
+                and getattr(event[1], 'type', None) == SDL_KEYDOWN
+                and getattr(event[1], 'key', None) in (SDLK_LEFT, SDLK_RIGHT)
+            )
+        except:
+            is_move_break = False
+
+        if is_p_up or is_move_break:
+            if getattr(config, 'weapon_mode', 'sword') == 'sword':
+                now = get_time()
+                self.boy.parry_active_until = None
+                self.boy.parry_cooldown_until = now + 5.0
 
     def do(self):
         now = get_time()
-        # 유지시간 종료 → 자동 해제 + 5초 쿨다운
+
+
+        if self.boy.right_pressed or self.boy.left_pressed:
+            if getattr(config, 'weapon_mode', 'sword') == 'sword':
+                self.boy.parry_active_until = None
+                self.boy.parry_cooldown_until = now + 5.0
+
+            self.boy.state_machine.handle_state_event(('BREAK_TO_MOVE', None))
+            return
+
+
         if getattr(self.boy, '_parry_hold_until', None) and now > self.boy._parry_hold_until:
             self.boy.parry_active_until = None
             self.boy.parry_cooldown_until = now + 5.0
@@ -483,6 +518,13 @@ class Character:
         self.canvas_w = get_canvas_width()  # 상단 타이머 UI 위치 계산용
         self.weapon_pick_time = 0.0  # 무기 집은 시각
         self.weapon_time_limit = 30.0  # 제한 시간(초)
+
+#타이머 표시를 위해 폰트 업로드
+        self.font = None
+        try:
+            self.font = load_font('ENCR10B.TTF', 18)  # 프로젝트 루트에 TTF 파일 두기
+        except:
+            self.font = None  # 폰트 없을 때도 크래시 안나게
 
 
         # 시작 y도 이걸로 맞춰놓자
@@ -797,15 +839,23 @@ class Character:
 
     def draw(self):
         self.state_machine.draw()
-       # self._draw_weapon_if_any()# 무기 그려야지
         self._draw_shield_if_parry()
-        self.draw_sweat_overlay() # 캐릭터 관련된걸 그리고 그 위에 땀방울을 그리는
+        self.draw_sweat_overlay()
         draw_rectangle(*self.get_bb())
 
-        c1 = (255, 255, 0) if self.pid == 1 else (0, 255, 255)
+        # 머리 위 작은 박스(기존 위치 유지)
         hx1, hy1 = self.x - 8, self.y + self.draw_h // 2 + 18
         hx2, hy2 = self.x + 8, self.y + self.draw_h // 2 + 30
-        draw_rectangle(hx1, hy1, hx2, hy2)
+        #draw_rectangle(hx1, hy1, hx2, hy2)
+
+        if self.weapon and self.weapon_pick_time and self.font:
+            now = get_time()
+            remain = max(0.0, self.weapon_time_limit - (now - self.weapon_pick_time))
+            label = f"{remain:0.1f}s"
+            # 대충 중앙 정렬 느낌으로 약간 왼쪽 보정
+            tx = (hx1 + hx2) * 0.5 - 12
+            ty = hy2 + 2
+            self.font.draw(tx, ty, label, (255, 255, 255))
 
     def draw_sweat_overlay(self):
         active, fire_time, total = self._reservation_info()
@@ -817,43 +867,29 @@ class Character:
             return
 
         progress = 1.0 - (t_rem / total)
-        if progress < 0: progress = 0
-        if progress > 1: progress = 1
+        progress = max(0.0, min(1.0, progress))
 
-        # 마지막 신호창 깜빡임
-        if t_rem <= getattr(self, 'signal_window_sec', 0.25):
-            if int(now * 16) % 2 == 1:
-                return
-
-        # 현재 애니 프레임 정보
+        # 현재 애니 프레임 키/인덱스 계산 (기존 로직 그대로)
         action = self.action
         if action in ('jump_up', 'jump_fall'):
-            idx = self.jump_frame;
-            action_key = 'jump_land'
+            idx, action_key = self.jump_frame, 'jump_land'
         elif action == 'idle':
-            idx = self.anim_frame;
-            action_key = 'idle'
+            idx, action_key = self.anim_frame, 'idle'
         elif action == 'move':
-            idx = self.move_frame;
-            action_key = 'move'
+            idx, action_key = self.move_frame, 'move'
         elif action == 'attack_fire':
-            idx = self.attack_frame;
-            action_key = 'attack_fire'
+            idx, action_key = self.attack_frame, 'attack_fire'
         elif action == 'attack_spear':
-            idx = self.attack_frame;
-            action_key = 'attack_spear'
+            idx, action_key = self.attack_frame, 'attack_spear'
         elif action == 'parry_hold':
-            idx = 0;
-            action_key = 'parry_hold'
+            idx, action_key = 0, 'parry_hold'
         else:
-            idx = self.jump_frame;
-            action_key = 'jump_land'
+            idx, action_key = self.jump_frame, 'jump_land'
 
         l, b, w, h = sprite[ACTION[action_key]][idx]
         sx_scale = self.draw_w / max(w, 1)
         sy_scale = self.draw_h / max(h, 1)
 
-        # 위치
         ox = (self.draw_w * 0.35) * (1 if self.face_dir == 1 else -1)
         oy = (self.draw_h * 0.35)
         fall_px = int(self.draw_h * 0.25 * progress)
@@ -864,23 +900,7 @@ class Character:
         sdw = int(sw * sx_scale)
         sdh = int(sh * sy_scale)
 
-        # 창 예약이면 색 변조(선택) → 밝기 살짝 줄이기 예시
-        if self.is_spear_attack_reserved:
-            self.image.clip_draw(sl, sb, sw, sh, sx, sy, sdw, sdh)
-        else:
-            self.image.clip_draw(sl, sb, sw, sh, sx, sy, sdw, sdh)
-
-        self.state_machine.draw()
-        self._draw_shield_if_parry()
-        self.draw_sweat_overlay()
-        draw_rectangle(*self.get_bb())
-        # 상단 무기 타이머 바
-        self._draw_weapon_timer_ui()
-        # (기존 작은 사각형 디버그 유지)
-        c1 = (255, 255, 0) if self.pid == 1 else (0, 255, 255)
-        hx1, hy1 = self.x - 8, self.y + self.draw_h // 2 + 18
-        hx2, hy2 = self.x + 8, self.y + self.draw_h // 2 + 30
-        draw_rectangle(hx1, hy1, hx2, hy2)
+        self.image.clip_draw(sl, sb, sw, sh, sx, sy, sdw, sdh)
 
     def get_bb(self):
             halfw = self.draw_w // 2 -8
