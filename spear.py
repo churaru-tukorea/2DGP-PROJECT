@@ -4,7 +4,7 @@ import game_world, game_framework
 from spear_poses import POSE, LEFT_FLIP_RULE, PIVOT_FROM_CENTER_PX
 
 
-NATIVE_SPRITE_DEG = 34.0
+NATIVE_SPRITE_DEG = -34.0
 
 class Spear:
     def __init__(self, ground_y: int, x: int | None = None):
@@ -80,7 +80,7 @@ class Spear:
 
 
         # ★ 앞쪽으로 8px 정도 밀어서 시작(손/몸/플랫폼과 즉시 겹침 완화)
-        spawn_off = 8.0
+        spawn_off = -10.0
         self.x = cx + math.cos(rad) * spawn_off
         self.y = cy + math.sin(rad) * spawn_off
 
@@ -88,10 +88,11 @@ class Spear:
 
         # 던진 사람과의 충돌은 조금 더 넉넉히 무시(0.12→0.20)
         self.ignore_char = prev_owner
-        self.ignore_until = get_time() + 0.20
+        self.ignore_until = get_time() + 0.30  # 0.20 → 0.30
 
 #검처럼 땅에 랜덤하게 박히는
     def reset_to_ground_random(self):
+        print('[RESET_TO_GROUND_RANDOM]', 'state=', self.state, 'x=', self.x, 'y=', self.y)
         cw = get_canvas_width()
         self.x = random.randint(40, cw - 40)
         # ★ 빠졌던 줄: GROUND로 돌아갈 때는 y도 바닥 기준으로 재설정
@@ -101,6 +102,7 @@ class Spear:
         self.vx = self.vy = 0.0
         self.rad = math.radians(180.0)
         self.detach()
+
         try:
             game_world.remove_collision_object_once(self, 'attack_spear:char')
             game_world.add_collision_pair('char:spear', None, self)
@@ -152,6 +154,7 @@ class Spear:
                 math.radians(180), '', self.x, self.y,
                 self.draw_w, self.draw_h
             )
+            print('spear GROUND', self.x, self.y)
             self._debug_draw_obb()
             return
 
@@ -168,6 +171,7 @@ class Spear:
                 self.rad, '', self.x, self.y, self.draw_w, self.draw_h
 
             )
+            print('spear FLYING', self.x, self.y)
             self._debug_draw_obb()
         self._debug_draw_obb()
 
@@ -263,7 +267,8 @@ class Spear:
         rx = dx * math.cos(rad) - dy * math.sin(rad)
         ry = dx * math.sin(rad) + dy * math.cos(rad)
 
-        cx, cy = hx - rx, hy - ry
+        cx = hx + rx
+        cy = hy + ry
 
         return cx, cy, rad, flip, dw, dh, hx, hy
 

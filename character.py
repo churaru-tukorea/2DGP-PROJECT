@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from pico2d import load_image, get_time, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_RIGHT, SDLK_LEFT, SDLK_a, \
     get_canvas_height, draw_rectangle, load_font, draw_line
 from sdl2 import SDLK_j, SDLK_p, SDLK_k, SDLK_i
-
+import game_world
 import os
 
 from pico2d import (SDL_KEYDOWN, SDL_KEYUP,
@@ -15,7 +15,6 @@ import config
 from sprite_tuples import ACTION, sprite, sweat
 from state_machine import StateMachine
 import math
-import game_world
 from sword_poses import POSE, LEFT_FLIP_RULE, PIVOT_FROM_CENTER_PX
 import game_framework
 
@@ -294,8 +293,8 @@ class Attack_Spear:
     def enter(self, ev=None):
         self.boy.action = "attack_spear"
         self.boy.attack_frame = 0
-        self._step = 2.0
-        #self._step = 1.0 / 20.0  # 더 빠른 프레임 진행
+        #self._step = 2.0
+        self._step = 1.0 / 20.0  # 더 빠른 프레임 진행
         self._next = get_time() + self._step
         self._thrown = False
         self._anchor_y = self.boy.y
@@ -899,28 +898,37 @@ class Character:
             game_world.remove_object(self)
             return
 
-        if group == 'char:spear' and self.weapon is None and getattr(other, 'state', '') == 'GROUND':
-            self.pickup_spear(other)
+        if group == 'char:spear':
+            from spear import Spear
+
+            # other 가 Spear 이고, 땅에 박힌 상태 + 아무 무기도 안 들고 있을 때만 줍기
+            if isinstance(other, Spear):
+                spear = other
+                if spear.state == 'GROUND' and self.weapon is None:
+                    spear.attach_to(self)
+                    self.weapon = spear
             return
 
         if group == 'attack_spear:char':
+            from spear import Spear
+
+            if not isinstance(other, Spear):
+                return
+
             spear = other
-            if (getattr(spear, 'ignore_char', None) is self) and (get_time() <= getattr(spear, 'ignore_until', 0.0)):
+
+            # 1) 자기 자신이 던진 창이면 충돌 무시
+            #    → 던지는 순간 자기 몸에 닿아서 바로 꽃히는 버그 방지
+            if spear.owner is self:
                 return
 
-            if getattr(spear, 'owner', None) is self:
-                return  # 자기 창 무시
-
-            # 창은 '저스트 패링'만 허용(홀드 중이라고 자동 성공 아님)
+            # 2) 패링 활성 상태면 창 튕기고 끝
             if getattr(self, 'parry_active', False):
-                try:
-                    spear._parry_lock = True
-                    spear.reset_to_ground_random()
-                finally:
-                    game_world.remove_collision_object_once(spear, 'attack_spear:char')
+                spear.reset_to_ground_random()
                 return
 
-            # 피격 처리(간단히 제거)
+            # 3) 그 외엔 피격 처리 (지금은 그냥 캐릭터 삭제)
+            game_world.remove_collision_object_once(spear, 'attack_spear:char')
             game_world.remove_object(self)
             return
 
