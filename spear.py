@@ -1,7 +1,10 @@
 import random, math
-from pico2d import load_image, get_canvas_width, get_time, draw_rectangle
+from pico2d import load_image, get_canvas_width, get_time, draw_rectangle, draw_line
 import game_world, game_framework
 from spear_poses import POSE, LEFT_FLIP_RULE, PIVOT_FROM_CENTER_PX
+
+
+NATIVE_SPRITE_DEG = 34.0
 
 class Spear:
     def __init__(self, ground_y: int, x: int | None = None):
@@ -18,6 +21,9 @@ class Spear:
         self.state = 'GROUND'
         self.owner = None
 
+        self.native_rad = math.radians(NATIVE_SPRITE_DEG)
+        self.sprite_flip = ''  # 던질 때의 플립 저장용
+
         # 투척 물리
         self.vx = 0.0
         self.vy = 0.0
@@ -30,7 +36,7 @@ class Spear:
         self.ignore_char = None
         self.ignore_until = 0.0
 
-        self.col_w = 2  # ← 충돌 전용 폭
+        self.col_w = 12  # ← 충돌 전용 폭
         self.col_h = self.draw_h-10  # 충돌 높이는 보이는 높이와 같게
 
         self._parry_lock = False  # 동일 프레임 중복 히트 방지
@@ -61,10 +67,8 @@ class Spear:
 #던져지는
     def throw_from_owner(self):
         if self.state != 'EQUIPPED' or not self.owner: return
-        # 던지기 시작 위치 계산
-        cx, cy, rad, _, dw, dh, *_ = self._compute_equipped_pose()
-
-        prev_owner = self.owner  # ← 던지기 직전 소유자 백업
+        cx, cy, rad, flip, dw, dh, *_ = self._compute_equipped_pose()
+        prev_owner = self.owner
 
         self.state = 'FLYING'
         self.spawn_time = get_time()
@@ -72,13 +76,19 @@ class Spear:
         self.vx = self.speed * dir_x
         self.vy = 0
         self.rad = rad
-        self.x, self.y = cx, cy
+        self.sprite_flip = flip
 
-        self.detach()  # owner=None
 
-        # 이 구간 동안은 '바로 던진 사람'과의 충돌 무시
+        # ★ 앞쪽으로 8px 정도 밀어서 시작(손/몸/플랫폼과 즉시 겹침 완화)
+        spawn_off = 8.0
+        self.x = cx + math.cos(rad) * spawn_off
+        self.y = cy + math.sin(rad) * spawn_off
+
+        self.detach()
+
+        # 던진 사람과의 충돌은 조금 더 넉넉히 무시(0.12→0.20)
         self.ignore_char = prev_owner
-        self.ignore_until = get_time() + 0.12
+        self.ignore_until = get_time() + 0.20
 
 #검처럼 땅에 랜덤하게 박히는
     def reset_to_ground_random(self):
@@ -125,14 +135,15 @@ class Spear:
     def draw(self):
         # 디버그 AABB
         l, b, r, t = self.get_bb()
-        draw_rectangle(l, b, r, t)
+        #draw_rectangle(l, b, r, t)
 
         if self.state == 'EQUIPPED' and self.owner:
             if self.owner.action in ('jump_up', 'jump_fall', 'jump_land'):
                 return
             cx, cy, rad, flip, dw, dh, hx, hy = self._compute_equipped_pose()
             self.image.clip_composite_draw(0, 0, self.image.w, self.image.h, rad, flip, cx, cy, dw, dh)
-            draw_rectangle(hx - 2, hy - 2, hx + 2, hy + 2)
+            self._debug_draw_obb()
+            #draw_rectangle(hx - 2, hy - 2, hx + 2, hy + 2)
             return
 
         if self.state == 'GROUND':
@@ -141,19 +152,32 @@ class Spear:
                 math.radians(180), '', self.x, self.y,
                 self.draw_w, self.draw_h
             )
+            self._debug_draw_obb()
             return
 
         if self.state == 'EQUIPPED' and self.owner:
             cx, cy, rad, flip, dw, dh, hx, hy = self._compute_equipped_pose()
             self.image.clip_composite_draw(0, 0, self.image.w, self.image.h, rad, flip, cx, cy, dw, dh)
-            draw_rectangle(hx - 2, hy - 2, hx + 2, hy + 2)  # 손 디버그
+            self._debug_draw_obb()
+            #draw_rectangle(hx - 2, hy - 2, hx + 2, hy + 2)  # 손 디버그
             return
 
         if self.state == 'FLYING':
             self.image.clip_composite_draw(
                 0, 0, self.image.w, self.image.h,
                 self.rad, '', self.x, self.y, self.draw_w, self.draw_h
+
             )
+            self._debug_draw_obb()
+        self._debug_draw_obb()
+
+    def _debug_draw_obb(self):
+        pts = self.get_obb()
+        for i in range(4):
+            x1, y1 = pts[i]
+            x2, y2 = pts[(i + 1) % 4]
+            draw_line(int(x1), int(y1), int(x2), int(y2))
+
 
 
     def get_bb(self):
@@ -166,20 +190,25 @@ class Spear:
         return min(xs), min(ys), max(xs), max(ys)
 
     def get_obb(self):
-        # 중심/각도는 그대로 가져오되,
-        # 폭은 col_w(얇게), 높이는 보이는 dh를 사용
         if self.state == 'EQUIPPED' and self.owner:
-            cx, cy, rad, _flip, dw, dh, *_ = self._compute_equipped_pose()
+            cx, cy, rad, flip, dw, dh, *_ = self._compute_equipped_pose()
             cw, ch = self.col_w, dh
+            bias = (self.native_rad if flip != 'h' else -self.native_rad)  # ★
+            rad_for_obb = rad + bias  # ★
+
         elif self.state == 'FLYING':
             cx, cy, rad = self.x, self.y, self.rad
             cw, ch = self.col_w, self.draw_h
-        else:  # GROUND
+            bias = (self.native_rad if self.sprite_flip != 'h' else -self.native_rad)  # ★
+            rad_for_obb = rad + bias  # ★
+
+        else:
             cx, cy, rad = self.x, self.y, math.radians(180.0)
             cw, ch = self.col_w, self.draw_h
+            rad_for_obb = rad
 
         hw, hh = cw * 0.5, ch * 0.5
-        c, s = math.cos(rad), math.sin(rad)
+        c, s = math.cos(rad_for_obb), math.sin(rad_for_obb)
         return (
             (cx + (+hw) * c - (+hh) * s, cy + (+hw) * s + (+hh) * c),
             (cx + (+hw) * c - (-hh) * s, cy + (+hw) * s + (-hh) * c),
