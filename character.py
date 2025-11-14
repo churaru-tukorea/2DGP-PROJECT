@@ -688,7 +688,7 @@ class Character:
             return
 
         # 진행도(0→1)
-        T_TOTAL = 3.0
+        T_TOTAL = self.attack_charge_time
         progress = 1.0 - (t_rem / T_TOTAL)
         if progress < 0.0: progress = 0.0
         if progress > 1.0: progress = 1.0
