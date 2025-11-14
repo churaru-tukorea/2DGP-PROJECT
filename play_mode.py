@@ -180,7 +180,20 @@ def draw():
     update_canvas()
 
 def finish():
-    pass
+    # 월드와 충돌 페어를 전부 정리하고, 레퍼런스도 끊는다
+    game_world.clear()
+    game_world.collision_pairs.clear()  # ← 충돌 그룹까지 초기화
+    global p1, p2, stage_colliders, sword
+    try:
+        # spear 전역도 같이 정리(있다면)
+        global spear
+    except NameError:
+        pass
+    p1 = p2 = stage_colliders = sword = None
+    try:
+        spear = None
+    except:
+        pass
 
 
 
