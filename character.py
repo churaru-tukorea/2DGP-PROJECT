@@ -74,6 +74,7 @@ class Idle:
     def enter(self, state_event):
         self.boy.action = "idle"
         self.boy.move_dir = 0
+        self.idle_timer = 0.0
 
     def exit(self, event):
         pass
@@ -104,6 +105,7 @@ class Move:
 
     def enter(self, state_event):
         self.boy.action = "move"
+        self.move_timer = 0.0
 
 
     def exit(self, event):
@@ -115,6 +117,7 @@ class Move:
     def draw(self):
 
         STEP = 0.125
+
         self.boy.move_timer += game_framework.frame_time
         while self.boy.move_timer >= STEP:
             self.boy.move_frame = (self.boy.move_frame + 1) % 10
@@ -308,6 +311,7 @@ class Character:
         #self.font = load_font('ENCR10B.TTF', 16)
         self.move_dir = 0
         self.image = load_image('project_character_sheet.png')
+        self.move_timer = 0.0
 
         if keymap is None:
             if pid == 1:
@@ -361,14 +365,28 @@ class Character:
         #self.face_dir = +1
         self.move_dir = 0  # -1: 왼쪽, 0: 안 움직임, +1: 오른쪽
 
+
+
         # 물리
         self.vx = 0.0
         self.vy = 0.0
         self.move_speed = 250.0     # px/s
-        self.jump_speed = 1200.0     # px/s 위로
+        self.jump_speed = 1200.0    # px/s 위로
         self.gravity = -1200.0      # px/s^2
-        self.max_jump_hold = 0.3   # 버튼 홀드로 더 올라갈 수 있는 시간(초)
+        self.max_jump_hold = 0.3    # 버튼 홀드로 더 올라갈 수 있는 시간(초)
 
+        # 버프용 기본값 백업
+        self.base_move_speed = self.move_speed
+        self.base_jump_speed = self.jump_speed
+        self.base_gravity = self.gravity
+
+        #  공격 차지 시간(아이템으로 줄어드는 값)
+        self.attack_charge_time = 3.0
+        self.base_attack_charge_time = 3.0
+
+        #  버프 종료 시각(없으면 0.0)
+        self.speed_buff_until = 0.0
+        self.attack_buff_until = 0.0
         self.jump_pressed_time = 0.0   # 언제 점프 시작했는지
         self.last_time = get_time()    # dt 구하려고
 
