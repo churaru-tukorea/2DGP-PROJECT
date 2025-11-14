@@ -302,3 +302,12 @@ class Spear:
         # draw_rad만 반환(렌더용). phys는 필요 시 flip과 native로 복구.
         return cx, cy, draw_rad, flip, dw, dh, hx, hy
 
+    def pickup_spear(self, other):
+        if self.weapon: return
+        self.weapon = other
+        game_world.remove_collision_object_once(other, 'char:spear')
+        other.attach_to(self)
+        other.state = 'EQUIPPED'
+        self.weapon_pick_time = get_time()  # ← 추가
+        return
+

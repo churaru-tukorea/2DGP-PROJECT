@@ -1,5 +1,5 @@
 import random
-from pico2d import load_image, get_canvas_width, draw_rectangle, draw_line
+from pico2d import load_image, get_canvas_width, draw_rectangle, draw_line, get_time
 import math
 from sword_poses import POSE, LEFT_FLIP_RULE, PIVOT_FROM_CENTER_PX
 from character import Character
@@ -80,6 +80,7 @@ class Sword:
             )
         l, b, r, t = self.get_bb()
         return ((l, b), (r, b), (r, t), (l, t))
+
 
     def get_bb(self):
         if self.state == 'GROUND':
@@ -202,4 +203,15 @@ class Sword:
             pts.append((wx, wy))
         xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
         return min(xs), min(ys), max(xs), max(ys)
+
+    def pickup_sword(self, other):
+        if self.weapon:  # 이미 들고 있으면 무시
+            return
+        self.weapon = other
+        game_world.remove_collision_object_once(other, 'char:sword')
+        print('무기 장착 (월드 유지, EQUIPPED)')
+        other.attach_to(self)
+        other.state = 'EQUIPPED'
+        self.weapon_pick_time = get_time()  # ← 추가
+        return
 
