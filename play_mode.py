@@ -111,6 +111,7 @@ def init():
         game_world.add_collision_pair('char:spear', None, spear)
 
         game_world.add_collision_pair('char:spear', None, spear)
+        game_world.add_collision_pair('attack_spear:char', spear, p1)
         game_world.add_collision_pair('attack_spear:char', None, p2)
 
         #game_world.add_collision_pair('attack_spear:stage', spear, stage_colliders)
