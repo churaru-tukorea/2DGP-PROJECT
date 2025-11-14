@@ -23,7 +23,7 @@ class Spear:
 
         self.native_rad = math.radians(NATIVE_SPRITE_DEG)
         self.sprite_flip = ''  # 던질 때의 플립 저장용
-
+        self.no_stage_hit_until = 0.0  # FLYING 직후 일정 시간 바닥 충돌 무시용 타이머
         # 투척 물리
         self.vx = 0.0
         self.vy = 0.0
@@ -51,6 +51,9 @@ class Spear:
                 self._parry_lock = True
                 self.reset_to_ground_random()
         if group == 'attack_spear:stage' and self.state == 'FLYING':
+            now = get_time()
+            if now < self.no_stage_hit_until:
+                return
             self.reset_to_ground_random()
             return
         return
@@ -66,29 +69,40 @@ class Spear:
             prev.weapon = None
 #던져지는
     def throw_from_owner(self):
-        if self.state != 'EQUIPPED' or not self.owner: return
-        cx, cy, rad, flip, dw, dh, *_ = self._compute_equipped_pose()
-        prev_owner = self.owner
+        if self.state != 'EQUIPPED' or not self.owner:
+            return
 
+        pose = self._compute_equipped_pose()
+        if not pose:
+            return
+
+        cx, cy, rad, _flip, dw, dh, *_ = pose
+
+        # 던지기 시작 위치/각도는 마지막 장착 포즈 기준
         self.state = 'FLYING'
+        self.x, self.y = cx, cy
+        self.rad = rad  # 애니메이션 마지막 프레임 각도 그대로 사용
+
+        # 이동 방향은 얼굴 방향만 반영해서 수평 이동만 하도록
+        dir_sign = 1 if self.owner.face_dir == 1 else -1
+        self.vx = self.speed * dir_sign
+        self.vy = 0.0
+
         self.spawn_time = get_time()
-        dir_x = 1 if prev_owner.face_dir == 1 else -1
-        self.vx = self.speed * dir_x
-        self.vy = 0
-        self.rad = rad
-        self.sprite_flip = flip
 
+        # 캐릭터 몸에서 살짝 떨어진 위치에서 시작 (자기 몸에 바로 닿지 않게)
+        offset = (dw * 0.5) + 20
+        self.x += math.cos(self.rad) * offset
+        #self.y += math.sin(self.rad) * offset*-1
 
-        # ★ 앞쪽으로 8px 정도 밀어서 시작(손/몸/플랫폼과 즉시 겹침 완화)
-        spawn_off = -10.0
-        self.x = cx + math.cos(rad) * spawn_off
-        self.y = cy + math.sin(rad) * spawn_off
+        now = get_time()
+        self.spawn_time = now
 
+        NO_STAGE_HIT_GRACE = 0.25  # 원하는 만큼 조절 (초)
+        self.no_stage_hit_until = now + NO_STAGE_HIT_GRACE
+
+        # 손에서 완전히 떨어지게 owner 연동 해제
         self.detach()
-
-        # 던진 사람과의 충돌은 조금 더 넉넉히 무시(0.12→0.20)
-        self.ignore_char = prev_owner
-        self.ignore_until = get_time() + 0.30  # 0.20 → 0.30
 
 #검처럼 땅에 랜덤하게 박히는
     def reset_to_ground_random(self):
@@ -194,30 +208,35 @@ class Spear:
         return min(xs), min(ys), max(xs), max(ys)
 
     def get_obb(self):
+        # 땅에 박힌 상태는 그냥 AABB 그대로 쓰면 충분
+        if self.state == 'GROUND':
+            l, b, r, t = self.get_bb()
+            return ((l, b), (r, b), (r, t), (l, t))
+
+        # EQUIPPED 이고 owner가 있으면 손 기준 포즈 사용
         if self.state == 'EQUIPPED' and self.owner:
-            cx, cy, rad, flip, dw, dh, *_ = self._compute_equipped_pose()
-            cw, ch = self.col_w, dh
-            bias = (self.native_rad if flip != 'h' else -self.native_rad)  # ★
-            rad_for_obb = rad + bias  # ★
-
-        elif self.state == 'FLYING':
-            cx, cy, rad = self.x, self.y, self.rad
-            cw, ch = self.col_w, self.draw_h
-            bias = (self.native_rad if self.sprite_flip != 'h' else -self.native_rad)  # ★
-            rad_for_obb = rad + bias  # ★
-
+            pose = self._compute_equipped_pose()
+            if pose:
+                cx, cy, rad, _flip, dw, dh, *_ = pose
+            else:
+                cx, cy, rad, dw, dh = self.x, self.y, self.rad, self.draw_w, self.draw_h
         else:
-            cx, cy, rad = self.x, self.y, math.radians(180.0)
-            cw, ch = self.col_w, self.draw_h
-            rad_for_obb = rad
+            # FLYING 포함: 현재 위치 + 현재 회전각 + draw 크기를 기준으로
+            cx, cy, rad, dw, dh = self.x, self.y, self.rad, self.draw_w, self.draw_h
+        total_rad = rad + self.native_rad
+        # 스프라이트 전체보다 조금 작게 충돌 박스 설정
+        col_w = dw * 0.30  # 너비 줄여서 막대처럼
+        col_h = dh * 0.90  # 높이는 거의 그대로
 
-        hw, hh = cw * 0.5, ch * 0.5
-        c, s = math.cos(rad_for_obb), math.sin(rad_for_obb)
+        hw, hh = col_w * 0.5, col_h * 0.5
+        c, s = math.cos(total_rad), math.sin(total_rad)
+
+        # 시계 방향 순서로 4꼭짓점
         return (
-            (cx + (+hw) * c - (+hh) * s, cy + (+hw) * s + (+hh) * c),
-            (cx + (+hw) * c - (-hh) * s, cy + (+hw) * s + (-hh) * c),
-            (cx + (-hw) * c - (-hh) * s, cy + (-hw) * s + (-hh) * c),
-            (cx + (-hw) * c - (+hh) * s, cy + (-hw) * s + (+hh) * c),
+            (cx - hw * c + hh * s, cy - hw * s - hh * c),
+            (cx + hw * c + hh * s, cy + hw * s - hh * c),
+            (cx + hw * c - hh * s, cy + hw * s + hh * c),
+            (cx - hw * c - hh * s, cy - hw * s + hh * c),
         )
     def _compute_equipped_pose(self):
         owner = self.owner

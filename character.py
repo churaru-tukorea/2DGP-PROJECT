@@ -880,7 +880,7 @@ class Character:
                     sword._parry_lock = True
                     sword.reset_to_ground_random()
                 finally:
-                    import game_world
+                    #import game_world
                     game_world.remove_collision_object_once(sword, 'attack_sword:char')
                 return
 
@@ -894,7 +894,7 @@ class Character:
                 return
 
             # 4) 여기까지 왔다면 즉사(월드에서 제거)
-            import game_world
+            #import game_world
             game_world.remove_object(self)
             return
 
