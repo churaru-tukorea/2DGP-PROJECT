@@ -8,6 +8,9 @@ import random
 from static_image_layer import StaticImageLayer
 from stage_colliders import StageColliders
 from items import SpeedClockItem, AttackClockItem
+import game_framework
+import config
+
 
 
 running = True
@@ -16,6 +19,11 @@ stage_colliders = None
 
 item_spawn_time = None   # 아이템이 처음 나올 시간
 item_spawned = False     # 이미 한 번이라도 스폰됐는지 여부
+item_spawn_interval = None
+
+p1 = None
+p2 = None
+sword = None
 
 
 def handle_events():
@@ -25,11 +33,17 @@ def handle_events():
     for event in event_list:
         if event.type == SDL_QUIT:
             running = False
+
         elif event.type == SDL_KEYDOWN and event.key == SDLK_ESCAPE:
             running = False
 
+        # 플레이 중에도 i를 누르면 무기 선택 모드로 넘어감
+        elif event.type == SDL_KEYDOWN and event.key == SDLK_i:
+            import item_mode
+            game_framework.change_mode(item_mode)
+
         else:
-            p1.handle_event(event)#그냥 둘다 한번씩 처리하면 되지 않을까?
+            p1.handle_event(event)
             p2.handle_event(event)
 
 
@@ -37,37 +51,29 @@ def handle_events():
 
 
 def init():
-    global p1
-    global p2
-    global running
-    global sword
-    global stage_colliders
-    global item_spawn_time, item_spawned
-    global item_spawn_interval
-
+    global p1, p2, running, sword, stage_colliders
+    global item_spawn_time, item_spawned, item_spawn_interval
 
     running = True
+    item_spawned = False
 
-
+    # 플레이어 생성
     p1 = Character(pid=1)
     p1.x = 300
     p2 = Character(pid=2)
     p2.x = 900
 
+    # 배경
     background_layer = StaticImageLayer('background.png', fit='cover')
     game_world.add_object(background_layer, 0)
 
-    boss_stage_layer = StaticImageLayer('boss stage.png', fit='cover') # 혹은 'boss_stage.png'
+    boss_stage_layer = StaticImageLayer('boss stage.png', fit='cover')
     game_world.add_object(boss_stage_layer, 1)
 
     stage_colliders = StageColliders(boss_stage_layer, debug=True)
     game_world.add_object(stage_colliders, 1)
 
-
-
-    #grass = Grass()
-    #game_world.add_object(grass, 0)
-
+    # 캐릭터
     game_world.add_object(p1, 2)
     game_world.add_object(p2, 2)
 
@@ -77,25 +83,42 @@ def init():
     p1.use_stage_collision = True
     p2.use_stage_collision = True
 
-    sword = Sword(2)
-    game_world.add_object(sword, 2)
+    # --- 무기 모드에 따라 무기 셋업 ---
+    weapon_mode = getattr(config, 'weapon_mode', 'sword')
+    print(f'[play_mode] weapon_mode = {weapon_mode}')
 
-#플레이어가 검을 먹는 그걸 하려고.
-    game_world.add_collision_pair('char:sword', p1, None)
-    game_world.add_collision_pair('char:sword', p2, None)
-    game_world.add_collision_pair('char:sword', None, sword)
+    if weapon_mode == 'sword':
+        sword = Sword(2)
+        game_world.add_object(sword, 2)
 
-    # 아이템(시계)용 충돌 그룹 – 플레이어 쪽만 먼저 등록
+        # 플레이어가 검을 줍는 충돌 그룹
+        game_world.add_collision_pair('char:sword', p1, None)
+        game_world.add_collision_pair('char:sword', p2, None)
+        game_world.add_collision_pair('char:sword', None, sword)
+
+        # 공격 중 칼 vs 캐릭터
+        game_world.add_collision_pair('attack_sword:char', None, p1)
+        game_world.add_collision_pair('attack_sword:char', None, p2)
+
+    elif weapon_mode == 'spear':
+        # 아직 spear는 구현 전이라 이렇게.
+        print('[play_mode] spear 모드는 아직 구현 전입니다. 일단 sword 모드로 동작합니다.')
+        sword = Sword(2)
+        game_world.add_object(sword, 2)
+
+        game_world.add_collision_pair('char:sword', p1, None)
+        game_world.add_collision_pair('char:sword', p2, None)
+        game_world.add_collision_pair('char:sword', None, sword)
+
+        game_world.add_collision_pair('attack_sword:char', None, p1)
+        game_world.add_collision_pair('attack_sword:char', None, p2)
+
+    # 아이템(시계) 충돌 그룹 – 플레이어 쪽 먼저
     game_world.add_collision_pair('char:item', p1, None)
     game_world.add_collision_pair('char:item', p2, None)
 
-
-    # 이게 그냥 움직일 때도 닿을 때가 있는데, 아무리 생각해도 그때마다 체크해서 공격상태인지 보는 것보다 그냥 공격 하는 순간에만 이 그룹에 넣었다 빼는게 더 낫지 않나?
-    game_world.add_collision_pair('attack_sword:char', None, p1)
-    game_world.add_collision_pair('attack_sword:char', None, p2)
-
-    # 아이템 스폰 타이머: 게임 시작 후 10초 뒤 한 번(테스트라 2초)
-    item_spawn_interval = 2.0
+    # 아이템 스폰 타이머
+    item_spawn_interval = 10.0
     item_spawn_time = get_time() + item_spawn_interval
 
 
