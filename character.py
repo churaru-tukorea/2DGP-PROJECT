@@ -290,13 +290,48 @@ class Attack_Spear:
         self.boy = boy
 
     def enter(self, ev=None):
-        pass
+        self.boy.action = "attack_spear"
+        self.boy.attack_frame = 0
+        self._step = 1.0 / 20.0  # 더 빠른 프레임 진행
+        self._next = get_time() + self._step
+        self._thrown = False
+        self._anchor_y = self.boy.y
 
     def exit(self, ev=None):
         pass
 
     def do(self): pass
-    def draw(self): pass
+    def draw(self):
+        now = get_time()
+        # Y 고정
+        self.boy.y = self._anchor_y
+
+        while now >= self._next and self.boy.attack_frame < 6:
+            self.boy.attack_frame += 1
+            self._next += self._step
+
+        # release frame에서 실제 투척
+        if (not self._thrown) and self.boy.attack_frame >= 3:
+            w = getattr(self.boy, 'weapon', None)
+            if w and hasattr(w, 'throw_from_owner'):
+                w.throw_from_owner()
+            self._thrown = True
+
+        l, b, w, h = sprite[ACTION['attack_spear']][self.boy.attack_frame]
+        if self.boy.face_dir == 1:
+            self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
+        else:
+            self.boy.image.clip_composite_draw(l, b, w, h, 0, 'h', self.boy.x, self.boy.y, self.boy.draw_w,
+                                               self.boy.draw_h)
+
+        if self.boy.attack_frame >= 6:
+            if self.boy.y > self.boy.ground_y:
+                self.boy.state_machine.handle_state_event(('ATTACK_END_AIR', None))
+            else:
+                if self.boy.right_pressed or self.boy.left_pressed:
+                    self.boy.state_machine.handle_state_event(('ATTACK_END_MOVE', None))
+                else:
+                    self.boy.state_machine.handle_state_event(('ATTACK_END_IDLE', None))
 
 
 class Parry_Hold:
