@@ -9,6 +9,8 @@ import os
 from pico2d import (SDL_KEYDOWN, SDL_KEYUP,
                     SDLK_LEFT, SDLK_RIGHT, SDLK_j, SDLK_k, SDLK_p,SDLK_i,
                     SDLK_a, SDLK_d, SDLK_KP_1, SDLK_KP_2, SDLK_KP_3, SDLK_KP_5) # 2p키까지 감안해서 그냥 한번에 해버리기
+
+import config
 # 애니 좌표/액션 인덱스:
 from sprite_tuples import ACTION, sprite, sweat
 from state_machine import StateMachine
@@ -283,12 +285,31 @@ class Attack_Fire:
                 else:
                     self.boy.state_machine.handle_state_event(('ATTACK_END_IDLE', None))
 
+class Attack_Spear:
+    def __init__(self, boy):
+        self.boy = boy
+
+    def enter(self, ev=None):
+        pass
+
+    def exit(self, ev=None):
+        pass
+
+    def do(self): pass
+    def draw(self): pass
+
+
 class Parry_Hold:
     def __init__(self, boy):
         self.boy = boy
 
     def enter(self, state_event):
         self.boy.action = "parry_hold"
+        now = get_time()
+        if getattr(config, 'weapon_mode', 'sword') == 'spear':
+            self.boy.parry_active_until = now + 0.12
+        else:
+            self.boy.parry_active_until = None  # 검은 기존처럼 홀드 중엔 상시 유효
 
     def exit(self, event):
         pass
@@ -560,6 +581,9 @@ class Character:
     def update(self):
         # 생각해봤는데 상태랑 상관없이 무조건 매 프레임 돌아야 하는 애들은 그냥 한번에 여기서 계산하기로 하는게 편하지 않을까?
         now = get_time()
+
+        # 패링 유효창(저스트) 갱신
+        self.parry_active = (self.parry_active_until is not None and now <= self.parry_active_until)
 
         # 버프 만료 체크
         if self.speed_buff_until and now > self.speed_buff_until:
