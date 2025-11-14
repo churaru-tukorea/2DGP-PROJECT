@@ -343,22 +343,25 @@ class Parry_Hold:
     def enter(self, state_event):
         self.boy.action = "parry_hold"
         now = get_time()
-        if getattr(config, 'weapon_mode', 'spear') == 'spear':
-            self.boy.parry_active_until = now + 0.12
+        mode = getattr(config, 'weapon_mode', 'sword')  # 기본은 sword 가정
+        if mode == 'spear':
+            dur = 0.12  # 창인 경우 아주 조금
         else:
-            self.boy.parry_active_until = None
+            dur = 1.0  # 검: 1초 유지
+
+        self.boy.parry_active_until = now + dur  # 충돌 유효시간
+        self.boy._parry_hold_until = now + dur  # 유지시간
 
     def exit(self, event):
-        pass
+        self.boy._parry_hold_until = None
 
     def do(self):
-        if getattr(config, 'weapon_mode', 'spear') == 'spear':
-            now = get_time()
-            if self.boy.parry_active_until and now > self.boy.parry_active_until:
-                self.boy.parry_active_until = None
-                self.boy.parry_cooldown_until = now + 5.0
-                # 강제 해제
-                self.boy.state_machine.handle_state_event(('PARRY_EXPIRE', None))
+        now = get_time()
+        # 유지시간 종료 → 자동 해제 + 5초 쿨다운
+        if getattr(self.boy, '_parry_hold_until', None) and now > self.boy._parry_hold_until:
+            self.boy.parry_active_until = None
+            self.boy.parry_cooldown_until = now + 5.0
+            self.boy.state_machine.handle_state_event(('PARRY_EXPIRE', None))
 
     def draw(self):
         # parry_hold는 1프레임 고정
@@ -615,11 +618,11 @@ class Character:
             self.is_jump_key_pressed = False
             self.state_machine.handle_state_event(('JUMP_FALL', None))
 
+#창 말고도 그냥 검에도 하게
         if event.type == SDL_KEYDOWN and event.key == SDLK_p:
-            if getattr(config, 'weapon_mode', 'sword') == 'spear':
-                now = get_time()
-                if self.parry_cooldown_until and now < self.parry_cooldown_until:
-                    return  # 쿨다운 중: 패링 시작 자체를 막음
+            now = get_time()
+            if self.parry_cooldown_until and now < self.parry_cooldown_until:
+                return  # 쿨다운 중이면 시작 불가
 
         # 공격: 즉시 전이 X, 예약만 걸고 반환
         if event.type == SDL_KEYDOWN and event.key == SDLK_k:
@@ -692,7 +695,20 @@ class Character:
         dt = game_framework.frame_time
         self.last_time = now
 
-        # --- 좌/우 입력 해석 ---
+        if self.weapon:
+            if not self.weapon_pick_time:
+                self.weapon_pick_time = now
+            if now - self.weapon_pick_time >= self.weapon_time_limit:
+                w = self.weapon
+                if hasattr(w, 'reset_to_ground_random'):
+                    w.reset_to_ground_random()  # 패링 튕김과 동일한 효과
+                self.weapon = None
+                self.weapon_pick_time = 0.0
+        else:
+            # 들고 있지 않으면 타이머 초기화
+            self.weapon_pick_time = 0.0
+
+
         r = 1 if self.right_pressed else 0
         l = 1 if self.left_pressed else 0
         if r and not l:
@@ -853,6 +869,18 @@ class Character:
             self.image.clip_draw(sl, sb, sw, sh, sx, sy, sdw, sdh)
         else:
             self.image.clip_draw(sl, sb, sw, sh, sx, sy, sdw, sdh)
+
+        self.state_machine.draw()
+        self._draw_shield_if_parry()
+        self.draw_sweat_overlay()
+        draw_rectangle(*self.get_bb())
+        # 상단 무기 타이머 바
+        self._draw_weapon_timer_ui()
+        # (기존 작은 사각형 디버그 유지)
+        c1 = (255, 255, 0) if self.pid == 1 else (0, 255, 255)
+        hx1, hy1 = self.x - 8, self.y + self.draw_h // 2 + 18
+        hx2, hy2 = self.x + 8, self.y + self.draw_h // 2 + 30
+        draw_rectangle(hx1, hy1, hx2, hy2)
 
     def get_bb(self):
             halfw = self.draw_w // 2 -8
@@ -1088,6 +1116,32 @@ class Character:
         halfw = self.draw_w // 2 - 8
         halfh = self.draw_h // 2 - 8
         return halfw, halfh
+
+    def _draw_weapon_timer_ui(self):
+        if not (self.weapon and self.weapon_pick_time):
+            return
+        now = get_time()
+        remain = max(0.0, self.weapon_time_limit - (now - self.weapon_pick_time))
+        frac = remain / self.weapon_time_limit
+
+        bar_w, bar_h = 140, 8
+        margin = 20
+        y1 = self.canvas_h - 20
+        if self.pid == 1:
+            x1 = margin
+            x2 = x1 + bar_w
+        else:
+            x2 = self.canvas_w - margin
+            x1 = x2 - bar_w
+
+        # 외곽선
+        draw_rectangle(x1, y1, x2, y1 + bar_h)
+
+        # 내부 채우기(선 여러 줄로 채움)
+        fill_w = int(bar_w * frac)
+        if fill_w > 0:
+            for yy in range(int(y1) + 1, int(y1 + bar_h)):
+                draw_line(x1 + 1, yy, x1 + fill_w - 1, yy)
 
     def _solve_stage_collision(self, stage):
         cur_bb = self.get_bb()
