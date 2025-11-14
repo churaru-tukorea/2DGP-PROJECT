@@ -4,7 +4,7 @@ import game_world, game_framework
 from spear_poses import POSE, LEFT_FLIP_RULE, PIVOT_FROM_CENTER_PX
 
 
-NATIVE_SPRITE_DEG = -34.0
+NATIVE_SPRITE_DEG = -20.0
 
 class Spear:
     def __init__(self, ground_y: int, x: int | None = None):
@@ -41,6 +41,11 @@ class Spear:
 
         self._parry_lock = False  # 동일 프레임 중복 히트 방지
 
+        self.no_char_hit_until = 0.0  # 캐릭터 충돌 유예
+        self._owner_release_time = 0.0  # 임시 owner 유지 종료 시각
+
+
+
     def handle_collision(self, group, other):
         # 캐릭터 쪽에서 대부분 처리함. 창 쪽은 특별히 할 일 없음.
         if group == 'attack_spear:char':
@@ -76,34 +81,37 @@ class Spear:
         if not pose:
             return
 
-        cx, cy, rad, _flip, dw, dh, *_ = pose
+        cx, cy, draw_rad, flip, dw, dh, *_ = pose
 
-        # 던지기 시작 위치/각도는 마지막 장착 포즈 기준
+        # draw → phys 환원해서 비행에 사용
+        native = self.native_rad if flip == '' else -self.native_rad
+        phys_rad = draw_rad + native
+
+        old_owner = self.owner
         self.state = 'FLYING'
         self.x, self.y = cx, cy
-        self.rad = rad  # 애니메이션 마지막 프레임 각도 그대로 사용
+        self.rad = phys_rad  # ← 비행/충돌용은 'phys'
+        self.sprite_flip = flip  # ← 비행 중 렌더용 플립 기억
 
-        # 이동 방향은 얼굴 방향만 반영해서 수평 이동만 하도록
-        dir_sign = 1 if self.owner.face_dir == 1 else -1
+        dir_sign = 1 if old_owner.face_dir == 1 else -1
         self.vx = self.speed * dir_sign
         self.vy = 0.0
 
-        self.spawn_time = get_time()
-
-        # 캐릭터 몸에서 살짝 떨어진 위치에서 시작 (자기 몸에 바로 닿지 않게)
         offset = (dw * 0.5) + 20
         self.x += math.cos(self.rad) * offset
-        #self.y += math.sin(self.rad) * offset*-1
 
         now = get_time()
         self.spawn_time = now
 
-        NO_STAGE_HIT_GRACE = 0.25  # 원하는 만큼 조절 (초)
-        self.no_stage_hit_until = now + NO_STAGE_HIT_GRACE
+        GRACE = 0.18
+        self.no_stage_hit_until = now + GRACE
+        self.no_char_hit_until = now + GRACE
+        self.ignore_char = old_owner
+        self.ignore_until = now + GRACE
 
-        # 손에서 완전히 떨어지게 owner 연동 해제
-        self.detach()
-
+        if getattr(old_owner, 'weapon', None) is self:
+            old_owner.weapon = None
+        self._owner_release_time = now + GRACE
 #검처럼 땅에 랜덤하게 박히는
     def reset_to_ground_random(self):
         print('[RESET_TO_GROUND_RANDOM]', 'state=', self.state, 'x=', self.x, 'y=', self.y)
@@ -122,12 +130,13 @@ class Spear:
             game_world.add_collision_pair('char:spear', None, self)
         except Exception:
             pass
+
     def update(self):
         now = get_time()
 
-        # 동적 충돌 그룹 등록(FLYING일 때만 공격판정)
+        # 동적 충돌 그룹: FLYING 이라도 캐릭터 충돌은 GRACE 뒤에만 켠다
         try:
-            if self.state == 'FLYING':
+            if self.state == 'FLYING' and now >= self.no_char_hit_until:
                 game_world.remove_collision_object_once(self, 'attack_spear:char')
                 game_world.add_collision_pair('attack_spear:char', self, None)
             else:
@@ -135,19 +144,20 @@ class Spear:
         except Exception:
             pass
 
+        # 임시 owner 해제(유예 끝나면 owner=None)
+        if self.state == 'FLYING' and self.owner and now >= self._owner_release_time:
+            self.owner = None
+
         if self.state == 'FLYING':
             dt = game_framework.frame_time
-            #self.vy += self.gravity * dt
+            # 중력 없이 수평 비행(요구사항 유지)
             self.x += self.vx * dt
-            #self.y += self.vy * dt
 
-            # 수명/화면 밖 → 빗나감 처리
             cw = get_canvas_width()
-            if (now - self.spawn_time > self.life_time or
-                    self.x < -100 or self.x > cw + 100):
+            if (now - self.spawn_time > self.life_time) or (self.x < -100) or (self.x > cw + 100):
                 self.reset_to_ground_random()
 
-        pass
+
     def draw(self):
         # 디버그 AABB
         l, b, r, t = self.get_bb()
@@ -180,12 +190,15 @@ class Spear:
             return
 
         if self.state == 'FLYING':
+            # 비행 중: self.rad(phys) → draw로 보정
+            flip = self.sprite_flip if self.sprite_flip else ('' if self.vx >= 0 else 'h')
+            native = self.native_rad if flip == '' else -self.native_rad
+            draw_rad = self.rad - native
+
             self.image.clip_composite_draw(
                 0, 0, self.image.w, self.image.h,
-                self.rad, '', self.x, self.y, self.draw_w, self.draw_h
-
+                draw_rad, flip, self.x, self.y, self.draw_w, self.draw_h
             )
-            print('spear FLYING', self.x, self.y)
             self._debug_draw_obb()
         self._debug_draw_obb()
 
@@ -208,30 +221,26 @@ class Spear:
         return min(xs), min(ys), max(xs), max(ys)
 
     def get_obb(self):
-        # 땅에 박힌 상태는 그냥 AABB 그대로 쓰면 충분
         if self.state == 'GROUND':
             l, b, r, t = self.get_bb()
             return ((l, b), (r, b), (r, t), (l, t))
 
-        # EQUIPPED 이고 owner가 있으면 손 기준 포즈 사용
         if self.state == 'EQUIPPED' and self.owner:
             pose = self._compute_equipped_pose()
             if pose:
-                cx, cy, rad, _flip, dw, dh, *_ = pose
+                cx, cy, draw_rad, flip, dw, dh, *_ = pose
+                # draw → phys 환원
+                native = self.native_rad if flip == '' else -self.native_rad
+                rad = draw_rad + native
             else:
                 cx, cy, rad, dw, dh = self.x, self.y, self.rad, self.draw_w, self.draw_h
         else:
-            # FLYING 포함: 현재 위치 + 현재 회전각 + draw 크기를 기준으로
             cx, cy, rad, dw, dh = self.x, self.y, self.rad, self.draw_w, self.draw_h
-        total_rad = rad + self.native_rad
-        # 스프라이트 전체보다 조금 작게 충돌 박스 설정
-        col_w = dw * 0.30  # 너비 줄여서 막대처럼
-        col_h = dh * 0.90  # 높이는 거의 그대로
 
+        col_w = dw * 0.30
+        col_h = dh * 0.90
         hw, hh = col_w * 0.5, col_h * 0.5
-        c, s = math.cos(total_rad), math.sin(total_rad)
-
-        # 시계 방향 순서로 4꼭짓점
+        c, s = math.cos(rad), math.sin(rad)
         return (
             (cx - hw * c + hh * s, cy - hw * s - hh * c),
             (cx + hw * c + hh * s, cy + hw * s - hh * c),
@@ -241,7 +250,7 @@ class Spear:
     def _compute_equipped_pose(self):
         owner = self.owner
         cur = owner._current_frame_info()
-        if not cur:  # 폴백
+        if not cur:
             return owner.x, owner.y, 0.0, '', self.draw_w, self.draw_h, owner.x, owner.y
         act, idx, (fw, fh) = cur
 
@@ -250,44 +259,46 @@ class Spear:
             return owner.x, owner.y, 0.0, '', self.draw_w, self.draw_h, owner.x, owner.y
 
         ox_src, oy_src = lst[idx]['offset_src_px']
-        deg = lst[idx]['deg']
+        base_deg = lst[idx]['deg']  # 포즈가 정의한 '물리 각도'
 
         sx = owner.draw_w / float(max(fw, 1))
         sy = owner.draw_h / float(max(fh, 1))
 
         if owner.face_dir == 1:
             hx = owner.x - owner.draw_w * 0.5 + ox_src * sx
-            deg_prime, flip = deg, ''
+            phys_deg, flip = base_deg, ''
+            native_deg_signed = NATIVE_SPRITE_DEG  # 우향은 그대로
         else:
             hx = owner.x + owner.draw_w * 0.5 - ox_src * sx
             if LEFT_FLIP_RULE == 'NEGATE':
-                deg_prime, flip = -deg, 'h'
+                phys_deg, flip = -base_deg, 'h'
             elif LEFT_FLIP_RULE == 'KEEP':
-                deg_prime, flip = deg, 'h'
+                phys_deg, flip = base_deg, 'h'
             else:
-                deg_prime, flip = deg + 180.0, 'h'
+                phys_deg, flip = base_deg + 180.0, 'h'
+            native_deg_signed = -NATIVE_SPRITE_DEG  # 좌향은 부호 반전
 
         hy = owner.y - owner.draw_h * 0.5 + oy_src * sy
 
+        # === 핵심: draw용 각도와 phys용 각도 분리 ===
+        phys_rad = math.radians(phys_deg)  # 충돌/OBB
+        draw_rad = math.radians(phys_deg - native_deg_signed)  # 렌더/피벗
 
         sw, sh = self.image.w, self.image.h
-
-        # 이미지 원본 높이를 self.draw_h에 맞추는 스케일
         scale = self.draw_h / float(sh)
-        dw = int(sw * scale)   # 폭은 비율에 맞춰
-        dh = self.draw_h       # 높이는 항상 80 (위에서 정한 값)
+        dw = int(sw * scale)
+        dh = self.draw_h
 
-
+        # 손잡이 피벗(이미지 좌표 → 월드) 회전은 "그리는 각도"로 해야 맞다
         dx, dy = PIVOT_FROM_CENTER_PX
-        dx *= scale
+        dx *= scale;
         dy *= scale
-
-        rad = math.radians(deg_prime)
-        rx = dx * math.cos(rad) - dy * math.sin(rad)
-        ry = dx * math.sin(rad) + dy * math.cos(rad)
+        rx = dx * math.cos(draw_rad) - dy * math.sin(draw_rad)
+        ry = dx * math.sin(draw_rad) + dy * math.cos(draw_rad)
 
         cx = hx + rx
         cy = hy + ry
 
-        return cx, cy, rad, flip, dw, dh, hx, hy
+        # draw_rad만 반환(렌더용). phys는 필요 시 flip과 native로 복구.
+        return cx, cy, draw_rad, flip, dw, dh, hx, hy
 
