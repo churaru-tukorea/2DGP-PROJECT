@@ -84,9 +84,18 @@ def init():
     game_world.add_collision_pair('char:sword', p2, None)
     game_world.add_collision_pair('char:sword', None, sword)
 
+    # 아이템(시계)용 충돌 그룹 – 플레이어 쪽만 먼저 등록
+    game_world.add_collision_pair('char:item', p1, None)
+    game_world.add_collision_pair('char:item', p2, None)
+
+
     # 이게 그냥 움직일 때도 닿을 때가 있는데, 아무리 생각해도 그때마다 체크해서 공격상태인지 보는 것보다 그냥 공격 하는 순간에만 이 그룹에 넣었다 빼는게 더 낫지 않나?
     game_world.add_collision_pair('attack_sword:char', None, p1)
     game_world.add_collision_pair('attack_sword:char', None, p2)
+
+    # 아이템 스폰 타이머: 게임 시작 후 10초 뒤 한 번
+    item_spawn_time = get_time() + 10.0
+    item_spawned = False
 
 
 
@@ -94,6 +103,45 @@ def init():
 
 
 def update():
+    global item_spawn_time, item_spawned, stage_colliders
+
+    now = get_time()
+
+    # 아이템 스폰: 게임 시작 후 10초에 한 번, 아직 안 나왔을 때만
+    if (not item_spawned) and item_spawn_time is not None and now >= item_spawn_time:
+        cw = get_canvas_width()
+        # 화면 전체를 커버하는 큰 AABB로 질의
+        query_bb = (0, -1000, cw, 1000)
+        near = stage_colliders.query_boxes(query_bb, margin=0.0)
+
+        if near:
+            # (_, typ, L, B, R, T) 형태라고 가정 (char의 _solve_stage_collision과 동일)
+            _, typ, L, B, R, T = random.choice(near)
+
+            item_w = 48
+            item_h = 48
+            margin_x = item_w * 0.5 + 4  # 양 끝살짝 여유를 둠
+
+            if R - L <= margin_x * 2:
+                spawn_x = (L + R) * 0.5
+            else:
+                spawn_x = random.uniform(L + margin_x, R - margin_x)
+
+            # 아이템이 바닥에 딱 붙도록(센터 = 플랫폼 위 + 반높이)
+            spawn_y = T + item_h * 0.5
+
+            # 두 종류 중 하나를 랜덤 선택
+            if random.random() < 0.5:
+                item = SpeedClockItem(spawn_x, spawn_y)
+            else:
+                item = AttackClockItem(spawn_x, spawn_y)
+
+            game_world.add_object(item, 2)
+            # char:item 그룹의 반대편(아이템 쪽)에 등록
+            game_world.add_collision_pair('char:item', None, item)
+
+            item_spawned = True
+
     game_world.update()
     game_world.handle_collisions()
 
