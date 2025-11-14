@@ -755,6 +755,10 @@ class Character:
         if group == 'char:stage':
             self._solve_stage_collision(other)  # other = StageColliders
             return
+        if group == 'char:item':
+            if hasattr(other, 'apply_to'):
+                other.apply_to(self)
+            return
 
         if group == 'attack_sword:char':
             sword = other
