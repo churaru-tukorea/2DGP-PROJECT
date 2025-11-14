@@ -2,13 +2,13 @@ from types import SimpleNamespace
 
 from pico2d import load_image, get_time, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_RIGHT, SDLK_LEFT, SDLK_a, \
     get_canvas_height, draw_rectangle, load_font, draw_line
-from sdl2 import SDLK_j, SDLK_p, SDLK_k
+from sdl2 import SDLK_j, SDLK_p, SDLK_k, SDLK_i
 
 import os
 
 from pico2d import (SDL_KEYDOWN, SDL_KEYUP,
-                    SDLK_LEFT, SDLK_RIGHT, SDLK_j, SDLK_k, SDLK_p,
-                    SDLK_a, SDLK_d, SDLK_KP_1, SDLK_KP_2, SDLK_KP_3) # 2p키까지 감안해서 그냥 한번에 해버리기
+                    SDLK_LEFT, SDLK_RIGHT, SDLK_j, SDLK_k, SDLK_p,SDLK_i,
+                    SDLK_a, SDLK_d, SDLK_KP_1, SDLK_KP_2, SDLK_KP_3, SDLK_KP_5) # 2p키까지 감안해서 그냥 한번에 해버리기
 # 애니 좌표/액션 인덱스:
 from sprite_tuples import ACTION, sprite, sweat
 from state_machine import StateMachine
@@ -64,6 +64,8 @@ def p_down(e):
 def p_up(e):
     return e[0] == 'INPUT' and e[1].type == SDL_KEYUP and e[1].key == SDLK_p
 
+def i_down(e):
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_i
 
 
 
@@ -321,6 +323,7 @@ class Character:
                     'right': [SDLK_d],
                     'jump':  [SDLK_j],
                     'attack':[SDLK_k],
+                    'spear_attack': [SDLK_i],
                     'parry': [SDLK_p],
                 }
             else:  # pid == 2
@@ -331,6 +334,7 @@ class Character:
                     'right': [SDLK_RIGHT],
                     'jump':  [SDLK_KP_1],
                     'attack':[SDLK_KP_2],
+                    'spear_attack': [SDLK_KP_5],
                     'parry': [SDLK_KP_3],
                 }
         else:
@@ -549,6 +553,7 @@ class Character:
         if key in self.keymap['right']:  return SDLK_RIGHT
         if key in self.keymap['jump']:   return SDLK_j
         if key in self.keymap['attack']: return SDLK_k
+        if 'spear_attack' in self.keymap and key in self.keymap['spear_attack']: return SDLK_i
         if key in self.keymap['parry']:  return SDLK_p
         return None
         
