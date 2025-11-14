@@ -28,7 +28,7 @@ class Spear:
         self.vx = 0.0
         self.vy = 0.0
         self.rad = math.radians(0.0)
-        self.speed = 1200.0  # 매우 빠르게
+        self.speed = 600.0  # 매우 빠르게
         self.gravity = -900.0
         self.life_time = 1.2
         self.spawn_time = get_time()

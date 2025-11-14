@@ -343,16 +343,22 @@ class Parry_Hold:
     def enter(self, state_event):
         self.boy.action = "parry_hold"
         now = get_time()
-        if getattr(config, 'weapon_mode', 'sword') == 'spear':
+        if getattr(config, 'weapon_mode', 'spear') == 'spear':
             self.boy.parry_active_until = now + 0.12
         else:
-            self.boy.parry_active_until = None  # 검은 기존처럼 홀드 중엔 상시 유효
+            self.boy.parry_active_until = None
 
     def exit(self, event):
         pass
 
     def do(self):
-        pass
+        if getattr(config, 'weapon_mode', 'spear') == 'spear':
+            now = get_time()
+            if self.boy.parry_active_until and now > self.boy.parry_active_until:
+                self.boy.parry_active_until = None
+                self.boy.parry_cooldown_until = now + 5.0
+                # 강제 해제
+                self.boy.state_machine.handle_state_event(('PARRY_EXPIRE', None))
 
     def draw(self):
         # parry_hold는 1프레임 고정
@@ -560,7 +566,8 @@ class Character:
             self.PARRY_HOLD: {
                 p_up: self.IDLE,
                 right_down: self.MOVE,
-                left_down: self.MOVE
+                left_down: self.MOVE,
+                (lambda e: e[0] == 'PARRY_EXPIRE'): self.IDLE,
 
             },
             self.ATTACK_SPEAR: {
@@ -603,6 +610,12 @@ class Character:
         elif event.type == SDL_KEYUP and event.key == SDLK_j:
             self.is_jump_key_pressed = False
             self.state_machine.handle_state_event(('JUMP_FALL', None))
+
+        if event.type == SDL_KEYDOWN and event.key == SDLK_p:
+            if getattr(config, 'weapon_mode', 'sword') == 'spear':
+                now = get_time()
+                if self.parry_cooldown_until and now < self.parry_cooldown_until:
+                    return  # 쿨다운 중: 패링 시작 자체를 막음
 
         # 공격: 즉시 전이 X, 예약만 걸고 반환
         if event.type == SDL_KEYDOWN and event.key == SDLK_k:
