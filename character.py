@@ -823,6 +823,14 @@ class Character:
             halfh = self.draw_h // 2-8
             return self.x - halfw, self.y - halfh, self.x + halfw, self.y + halfh
 
+    def pickup_spear(self, other):
+        if self.weapon: return
+        self.weapon = other
+        game_world.remove_collision_object_once(other, 'char:spear')
+        other.attach_to(self)
+        other.state = 'EQUIPPED'
+        return
+
     def handle_collision(self, group, other):
         if group == 'char:sword' and self.weapon is None and getattr(other, 'state', '') == 'GROUND':
             self.pickup_sword(other)
@@ -868,6 +876,28 @@ class Character:
 
             # 4) 여기까지 왔다면 즉사(월드에서 제거)
             import game_world
+            game_world.remove_object(self)
+            return
+
+        if group == 'char:spear' and self.weapon is None and getattr(other, 'state', '') == 'GROUND':
+            self.pickup_spear(other)
+            return
+
+        if group == 'attack_spear:char':
+            spear = other
+            if getattr(spear, 'owner', None) is self:
+                return  # 자기 창 무시
+
+            # 창은 '저스트 패링'만 허용(홀드 중이라고 자동 성공 아님)
+            if getattr(self, 'parry_active', False):
+                try:
+                    spear._parry_lock = True
+                    spear.reset_to_ground_random()
+                finally:
+                    game_world.remove_collision_object_once(spear, 'attack_spear:char')
+                return
+
+            # 피격 처리(간단히 제거)
             game_world.remove_object(self)
             return
 
