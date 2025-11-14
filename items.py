@@ -54,6 +54,11 @@ class SpeedClockItem:
 
 class AttackClockItem:
     def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.image = load_image('attack_clock.png')
+        self.draw_w = 48
+        self.draw_h = 48
         pass
 
     def update(self):
@@ -61,13 +66,31 @@ class AttackClockItem:
         pass
 
     def draw(self):
+        self.image.clip_draw(0, 0, self.image.w, self.image.h,
+                             self.x, self.y, self.draw_w, self.draw_h)
+        draw_rectangle(*self.get_bb())
         pass
 
     def get_bb(self):
+        hw = self.draw_w // 2
+        hh = self.draw_h // 2
+        return self.x - hw, self.y - hh, self.x + hw, self.y + hh
         pass
 
     def handle_collision(self, group, other):
         pass
 
     def apply_to(self, character):
-        pass
+        now = get_time()
+        duration = 10.0
+        end_time = now + duration
+
+        if getattr(character, 'attack_buff_until', 0.0) > now:
+            character.attack_buff_until = max(character.attack_buff_until, end_time)
+        else:
+            character.attack_buff_until = end_time
+
+        # 공격 차지 시간을 1.5초로 고정
+        character.attack_charge_time = 1.5
+
+        game_world.remove_object(self)
