@@ -611,10 +611,10 @@ class Character:
                 self.attack_fire_time = get_time() + self.attack_charge_time
             return  # 공격은 상태머신에 바로 전달하지 않음
 
-        if event.type == SDL_KEYDOWN and event.key == SDLK_i:
-            if not self.is_attack_reserved:
-                self.is_attack_reserved = True
-                self.attack_fire_time = get_time() + self.attack_charge_time
+        if event.type == SDL_KEYDOWN and event.key == SDLK_i:  # 창
+            if not self.is_spear_attack_reserved:
+                self.is_spear_attack_reserved = True
+                self.spear_attack_time = get_time() + self.attack_charge_time
             return  # 창 공격도 즉시 상태 전이 안 함 (검과 동일한 동작)
 
         # 나머지는 상태머신에 그대로 전달
@@ -661,20 +661,15 @@ class Character:
             if now >= self.attack_fire_time:
                 self.is_attack_reserved = False
                 self.attack_fire_time = None
-                # 공중/지상 판단
-                air = getattr(self, 'y', 0) > getattr(self, 'ground_y', 0)
-                ev_name = 'ATTACK_SPEAR_READY' if (
-                        getattr(self, 'weapon', None).__class__.__name__ == 'Spear') else 'ATTACK_READY'
-                self.state_machine.handle_state_event((ev_name, {'air': air}))
+                air = self.y > self.ground_y
+                self.state_machine.handle_state_event(('ATTACK_READY', {'air': air}))
 
         if self.is_spear_attack_reserved and self.spear_attack_time is not None:
             if now >= self.spear_attack_time:
                 self.is_spear_attack_reserved = False
                 self.spear_attack_time = None
-                air = getattr(self, 'y', 0) > getattr(self, 'ground_y', 0)
-                ev_name = 'ATTACK_SPEAR_READY' if (
-                        getattr(self, 'weapon', None).__class__.__name__ == 'Spear') else 'ATTACK_READY'
-                self.state_machine.handle_state_event((ev_name, {'air': air}))
+                air = self.y > self.ground_y
+                self.state_machine.handle_state_event(('ATTACK_SPEAR_READY', {'air': air}))
 
         now = get_time()
         dt = game_framework.frame_time
@@ -759,8 +754,13 @@ class Character:
                 ys = [p[1] for p in self._shield_obb]
                 self._shield_aabb = (min(xs), min(ys), max(xs), max(ys))
 
-
-
+    def _reservation_info(self):
+        # spear 우선(동시에 걸릴 상황은 없게 설계했지만 안전하게)
+        if self.is_spear_attack_reserved and self.spear_attack_time:
+            return True, self.spear_attack_time, self.attack_charge_time
+        if self.is_attack_reserved and self.attack_fire_time:
+            return True, self.attack_fire_time, self.attack_charge_time
+        return False, None, None
 
     def draw(self):
         self.state_machine.draw()
@@ -775,70 +775,67 @@ class Character:
         draw_rectangle(hx1, hy1, hx2, hy2)
 
     def draw_sweat_overlay(self):
-        # 예약 중이 아니면 표시 안 함
-        if not (self.is_attack_reserved and self.attack_fire_time is not None):
+        active, fire_time, total = self._reservation_info()
+        if not active:
             return
-
         now = get_time()
-        t_rem = self.attack_fire_time - now
+        t_rem = fire_time - now
         if t_rem <= 0:
             return
 
-        # 진행도(0→1)
-        T_TOTAL = self.attack_charge_time
-        progress = 1.0 - (t_rem / T_TOTAL)
-        if progress < 0.0: progress = 0.0
-        if progress > 1.0: progress = 1.0
+        progress = 1.0 - (t_rem / total)
+        if progress < 0: progress = 0
+        if progress > 1: progress = 1
 
-        # 마지막 신호창(0.25s)에서 깜빡임
+        # 마지막 신호창 깜빡임
         if t_rem <= getattr(self, 'signal_window_sec', 0.25):
             if int(now * 16) % 2 == 1:
                 return
 
-        # 현재 프레임의 원본 크기(w,h) → 몸체 스케일 비율 계산
-        action = self.action  # 'idle','move','jump_land','attack_fire','parry_hold'
+        # 현재 애니 프레임 정보
+        action = self.action
         if action in ('jump_up', 'jump_fall'):
-            idx = self.jump_frame
+            idx = self.jump_frame;
             action_key = 'jump_land'
         elif action == 'idle':
-            idx = self.anim_frame
+            idx = self.anim_frame;
             action_key = 'idle'
         elif action == 'move':
-            idx = self.move_frame
+            idx = self.move_frame;
             action_key = 'move'
         elif action == 'attack_fire':
-            idx = self.attack_frame
+            idx = self.attack_frame;
             action_key = 'attack_fire'
+        elif action == 'attack_spear':
+            idx = self.attack_frame;
+            action_key = 'attack_spear'
         elif action == 'parry_hold':
-            idx = 0
+            idx = 0;
             action_key = 'parry_hold'
         else:
-            # 혹시 모르는 예외 키는 점프 랜딩으로 폴백
-            idx = self.jump_frame
+            idx = self.jump_frame;
             action_key = 'jump_land'
 
         l, b, w, h = sprite[ACTION[action_key]][idx]
-        # 몸체가 (w,h) → (draw_w,draw_h)로 그려지므로 이 비율을 따라간다
         sx_scale = self.draw_w / max(w, 1)
         sy_scale = self.draw_h / max(h, 1)
 
-        # 머리 옆 기준 오프셋(스케일 반영)
+        # 위치
         ox = (self.draw_w * 0.35) * (1 if self.face_dir == 1 else -1)
         oy = (self.draw_h * 0.35)
-
-        # 진행도에 따른 하강(스케일 반영)
         fall_px = int(self.draw_h * 0.25 * progress)
-
         sx = self.x + ox
         sy = self.y + oy - fall_px
 
-        # sweat[0] 조각을 몸체와 같은 비율로 스케일
         sl, sb, sw, sh = sweat[0]
         sdw = int(sw * sx_scale)
         sdh = int(sh * sy_scale)
 
-        # 땀방울은 좌우 반전 없이 위치만 반대로 (대칭 이미지)
-        self.image.clip_draw(sl, sb, sw, sh, sx, sy, sdw, sdh)
+        # 창 예약이면 색 변조(선택) → 밝기 살짝 줄이기 예시
+        if self.is_spear_attack_reserved:
+            self.image.clip_draw(sl, sb, sw, sh, sx, sy, sdw, sdh)
+        else:
+            self.image.clip_draw(sl, sb, sw, sh, sx, sy, sdw, sdh)
 
     def get_bb(self):
             halfw = self.draw_w // 2 -8

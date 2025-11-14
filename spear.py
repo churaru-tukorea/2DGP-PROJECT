@@ -41,6 +41,9 @@ class Spear:
             if getattr(other, 'parry_active', False):
                 self._parry_lock = True
                 self.reset_to_ground_random()
+        if group == 'attack_spear:stage' and self.state == 'FLYING':
+            self.reset_to_ground_random()
+            return
         return
 
     def attach_to(self, owner):

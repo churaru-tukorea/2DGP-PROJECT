@@ -113,6 +113,8 @@ def init():
         game_world.add_collision_pair('char:spear', None, spear)
         game_world.add_collision_pair('attack_spear:char', None, p2)
 
+        game_world.add_collision_pair('attack_spear:stage', spear, stage_colliders)
+
     # 아이템(시계) 충돌 그룹 – 플레이어 쪽 먼저
     game_world.add_collision_pair('char:item', p1, None)
     game_world.add_collision_pair('char:item', p2, None)
