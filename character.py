@@ -15,6 +15,7 @@ from state_machine import StateMachine
 import math
 import game_world
 from sword_poses import POSE, LEFT_FLIP_RULE, PIVOT_FROM_CENTER_PX
+import game_framework
 
 
 # 공격의 여러 상태를 추가(이게 공격 이후 어떤상태에 갈지도 다 다르기 떄무네)
@@ -546,9 +547,7 @@ class Character:
                 air = getattr(self, 'y', 0) > getattr(self, 'ground_y', 0)
                 self.state_machine.handle_state_event(('ATTACK_READY', {'air': air}))
 
-
-        now = get_time()
-        dt = now - self.last_time
+        dt = game_framework.frame_time
         self.last_time = now
 
         # --- 좌/우 입력 해석 ---
