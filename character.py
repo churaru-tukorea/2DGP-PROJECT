@@ -497,6 +497,7 @@ class Character:
         self.JUMP_LAND = Jump_Land(self)
         self.ATTACK_FIRE = Attack_Fire(self)
         self.PARRY_HOLD = Parry_Hold(self)
+        self.ATTACK_SPEAR = Attack_Spear(self)
 
         self._shield_pose = None  # 방패 위치/회전
         self._shield_obb = None # 방패 OBB
@@ -510,7 +511,8 @@ class Character:
                 left_up: self.MOVE,
                 j_down: self.JUMP_UP,
                 p_down: self.PARRY_HOLD,
-                attack_ready: self.ATTACK_FIRE
+                attack_ready: self.ATTACK_FIRE,
+                i_down: self.ATTACK_SPEAR
             },
             self.MOVE: {
                 right_down: self.IDLE,
@@ -520,12 +522,14 @@ class Character:
                 j_down: self.JUMP_UP,
                 attack_ready: self.ATTACK_FIRE,
                 p_down: self.PARRY_HOLD,
+                i_down: self.ATTACK_SPEAR
             },
             # 위로 뜨는 중
             self.JUMP_UP: {
                 # 키를 뗐거나 시간 끝나서 do()에서 'JUMP_FALL' 이벤트 던지면 여기로 감
                 (lambda e: e[0] == 'JUMP_FALL'): self.JUMP_FALL,
-                attack_ready: self.ATTACK_FIRE
+                attack_ready: self.ATTACK_FIRE,
+                i_down: self.ATTACK_SPEAR
 
             },
             # 떨어지는 중
@@ -533,13 +537,15 @@ class Character:
                 # 착지하면 Character.update()나 Jump_Fall.do()에서 ('LAND', None) 던짐
 
                 lambda e: e[0] == 'LAND': self.JUMP_LAND,
-                attack_ready: self.ATTACK_FIRE
+                attack_ready: self.ATTACK_FIRE,
+                i_down: self.ATTACK_SPEAR
             },
             # 착지 애니 돌기
             self.JUMP_LAND: {
                 (lambda e, _self=self: e[0] == 'TIMEOUT' and (_self.right_pressed or _self.left_pressed)): self.MOVE,
                 time_out: self.IDLE,
-                attack_ready: self.ATTACK_FIRE
+                attack_ready: self.ATTACK_FIRE,
+                i_down: self.ATTACK_SPEAR
             },
             self.ATTACK_FIRE: {
                 attack_end_air: self.JUMP_FALL,  # 착지 모션/낙하 상태로 (JumpLand 쓰면 그걸로 교체)
@@ -552,6 +558,11 @@ class Character:
                 left_down: self.MOVE
 
             },
+            self.ATTACK_SPEAR: {
+                attack_end_air: self.JUMP_FALL,
+                attack_end_move: self.MOVE,
+                attack_end_idle: self.IDLE,
+            }
         })
         pass
 
@@ -888,6 +899,9 @@ class Character:
         elif act in ('jump_up', 'jump_fall', 'jump_land'):
             idx = self.jump_frame
             key = 'jump_land'  # ← 점프 계열은 시트 키 통일
+        elif act == 'attack_spear':
+            idx = self.attack_frame
+            key = 'attack_spear'
         else:
             return None
 
