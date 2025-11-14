@@ -532,7 +532,7 @@ class Character:
         if event.type == SDL_KEYDOWN and event.key == SDLK_k:
             if not self.is_attack_reserved:
                 self.is_attack_reserved = True
-                self.attack_fire_time = get_time() + 3.0  # 3초 뒤 발동
+                self.attack_fire_time = get_time() + self.attack_charge_time
             return  # 공격은 상태머신에 바로 전달하지 않음
 
         # 나머지는 상태머신에 그대로 전달
@@ -553,11 +553,25 @@ class Character:
         return None
         
     def update(self):
-        #생각해봤는데 상태랑 상관없이 무조건 매 프레임 돌아야 하는 애들은 그냥 한번에 여기서 계산하기로 하는게 편하지 않을까?
-        self.prev_x, self.prev_y = self.x, self.y # 이전 위치 저장
-        # 3초 예약 도달 체크
+        # 생각해봤는데 상태랑 상관없이 무조건 매 프레임 돌아야 하는 애들은 그냥 한번에 여기서 계산하기로 하는게 편하지 않을까?
+        now = get_time()
+
+        # 버프 만료 체크
+        if self.speed_buff_until and now > self.speed_buff_until:
+            self.speed_buff_until = 0.0
+            self.move_speed = self.base_move_speed
+            self.jump_speed = self.base_jump_speed
+            self.gravity = self.base_gravity
+
+        if self.attack_buff_until and now > self.attack_buff_until:
+            self.attack_buff_until = 0.0
+            self.attack_charge_time = self.base_attack_charge_time
+
+        # 이전 위치 저장
+        self.prev_x, self.prev_y = self.x, self.y
+
+        # 공격 예약(차지) 도달 체크
         if self.is_attack_reserved and self.attack_fire_time is not None:
-            now = get_time()
             if now >= self.attack_fire_time:
                 self.is_attack_reserved = False
                 self.attack_fire_time = None
