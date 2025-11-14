@@ -25,6 +25,7 @@ def attack_ready(e):      return e[0] == 'ATTACK_READY'
 def attack_end_air(e):   return e[0] == 'ATTACK_END_AIR'
 def attack_end_move(e):   return e[0] == 'ATTACK_END_MOVE'
 def attack_end_idle(e):   return e[0] == 'ATTACK_END_IDLE'
+def attack_spear_ready(e): return e[0] == 'ATTACK_SPEAR_READY'
 
 def space_down(e): # e is space down ?
     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE
@@ -466,6 +467,9 @@ class Character:
         self.equipped = None
         self.attachments = []   # 나중에 검 말고 다른것도 할 예정이니까 이걸로 관리
 
+        self.is_spear_attack_reserved = False
+        self.spear_attack_time = None
+
 
         # 시작 y도 이걸로 맞춰놓자
         self.x, self.y = 400, 150
@@ -512,7 +516,7 @@ class Character:
                 j_down: self.JUMP_UP,
                 p_down: self.PARRY_HOLD,
                 attack_ready: self.ATTACK_FIRE,
-                i_down: self.ATTACK_SPEAR
+                attack_spear_ready: self.ATTACK_SPEAR
             },
             self.MOVE: {
                 right_down: self.IDLE,
@@ -522,14 +526,14 @@ class Character:
                 j_down: self.JUMP_UP,
                 attack_ready: self.ATTACK_FIRE,
                 p_down: self.PARRY_HOLD,
-                i_down: self.ATTACK_SPEAR
+                attack_spear_ready: self.ATTACK_SPEAR
             },
             # 위로 뜨는 중
             self.JUMP_UP: {
                 # 키를 뗐거나 시간 끝나서 do()에서 'JUMP_FALL' 이벤트 던지면 여기로 감
                 (lambda e: e[0] == 'JUMP_FALL'): self.JUMP_FALL,
                 attack_ready: self.ATTACK_FIRE,
-                i_down: self.ATTACK_SPEAR
+                attack_spear_ready: self.ATTACK_SPEAR
 
             },
             # 떨어지는 중
@@ -538,14 +542,14 @@ class Character:
 
                 lambda e: e[0] == 'LAND': self.JUMP_LAND,
                 attack_ready: self.ATTACK_FIRE,
-                i_down: self.ATTACK_SPEAR
+                attack_spear_ready: self.ATTACK_SPEAR
             },
             # 착지 애니 돌기
             self.JUMP_LAND: {
                 (lambda e, _self=self: e[0] == 'TIMEOUT' and (_self.right_pressed or _self.left_pressed)): self.MOVE,
                 time_out: self.IDLE,
                 attack_ready: self.ATTACK_FIRE,
-                i_down: self.ATTACK_SPEAR
+                attack_spear_ready: self.ATTACK_SPEAR
             },
             self.ATTACK_FIRE: {
                 attack_end_air: self.JUMP_FALL,  # 착지 모션/낙하 상태로 (JumpLand 쓰면 그걸로 교체)
@@ -606,6 +610,12 @@ class Character:
                 self.attack_fire_time = get_time() + self.attack_charge_time
             return  # 공격은 상태머신에 바로 전달하지 않음
 
+        if event.type == SDL_KEYDOWN and event.key == SDLK_i:
+            if not self.is_attack_reserved:
+                self.is_attack_reserved = True
+                self.attack_fire_time = get_time() + self.attack_charge_time
+            return  # 창 공격도 즉시 상태 전이 안 함 (검과 동일한 동작)
+
         # 나머지는 상태머신에 그대로 전달
         self.state_machine.handle_state_event(('INPUT', event))
 
@@ -652,7 +662,18 @@ class Character:
                 self.attack_fire_time = None
                 # 공중/지상 판단
                 air = getattr(self, 'y', 0) > getattr(self, 'ground_y', 0)
-                self.state_machine.handle_state_event(('ATTACK_READY', {'air': air}))
+                ev_name = 'ATTACK_READY_SPEAR' if (
+                            getattr(self, 'weapon', None).__class__.__name__ == 'Spear') else 'ATTACK_READY'
+                self.state_machine.handle_state_event((ev_name, {'air': air}))
+
+        if self.is_spear_attack_reserved and self.spear_attack_time is not None:
+            if now >= self.spear_attack_time:
+                self.is_spear_attack_reserved = False
+                self.spear_attack_time = None
+                air = getattr(self, 'y', 0) > getattr(self, 'ground_y', 0)
+                ev_name = 'ATTACK_READY_SPEAR' if (
+                            getattr(self, 'weapon', None).__class__.__name__ == 'Spear') else 'ATTACK_READY'
+                self.state_machine.handle_state_event((ev_name, {'air': air}))
 
         now = get_time()
         dt = game_framework.frame_time

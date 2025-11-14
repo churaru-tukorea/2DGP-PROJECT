@@ -10,7 +10,7 @@ class Spear:
         self.x = x if x is not None else random.randint(40, cw - 40)
         self.ground_y = ground_y
 
-        self.draw_w = 20
+        self.draw_w = 30
         self.draw_h = 80
         self.embed_px = 10
         self.y = self.ground_y + (self.draw_h - self.embed_px) * 0.5
@@ -28,6 +28,15 @@ class Spear:
         self.spawn_time = get_time()
 
         self._parry_lock = False  # 동일 프레임 중복 히트 방지
+
+    def handle_collision(self, group, other):
+        # 캐릭터 쪽에서 대부분 처리함. 창 쪽은 특별히 할 일 없음.
+        if group == 'attack_spear:char':
+            # 예: 상대가 저스트 패링 상태면 즉시 리셋
+            if getattr(other, 'parry_active', False):
+                self._parry_lock = True
+                self.reset_to_ground_random()
+        return
 
     def attach_to(self, owner):
         self.state = 'EQUIPPED'
@@ -174,20 +183,23 @@ class Spear:
 
         hy = owner.y - owner.draw_h * 0.5 + oy_src * sy
 
+
         sw, sh = self.image.w, self.image.h
-        scale = owner.draw_h / 50.0
-        dw, dh = int(sw * scale), int(sh * scale)
+
+        # 이미지 원본 높이를 self.draw_h에 맞추는 스케일
+        scale = self.draw_h / float(sh)
+        dw = int(sw * scale)   # 폭은 비율에 맞춰
+        dh = self.draw_h       # 높이는 항상 80 (위에서 정한 값)
+
 
         dx, dy = PIVOT_FROM_CENTER_PX
-        dx *= scale;
+        dx *= scale
         dy *= scale
+
         rad = math.radians(deg_prime)
         rx = dx * math.cos(rad) - dy * math.sin(rad)
         ry = dx * math.sin(rad) + dy * math.cos(rad)
         cx, cy = hx + rx, hy + ry
 
         return cx, cy, rad, flip, dw, dh, hx, hy
-
-
-
 
