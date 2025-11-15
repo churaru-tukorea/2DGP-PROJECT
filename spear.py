@@ -148,6 +148,10 @@ class Spear:
     def update(self):
         now = get_time()
 
+        if self.state == 'RESET_FLY':
+            self._update_reset_fly(now)
+            return
+
         # 동적 충돌 그룹: FLYING 이라도 캐릭터 충돌은 GRACE 뒤에만 켠다
         try:
             if self.state == 'FLYING' and now >= self.no_char_hit_until:
@@ -303,7 +307,6 @@ class Spear:
         dw = int(sw * scale)
         dh = self.draw_h
 
-        # 손잡이 피벗(이미지 좌표 → 월드) 회전은 "그리는 각도"로 해야 맞다
         dx, dy = PIVOT_FROM_CENTER_PX
         dx *= scale;
         dy *= scale
@@ -313,7 +316,6 @@ class Spear:
         cx = hx + rx
         cy = hy + ry
 
-        # draw_rad만 반환(렌더용). phys는 필요 시 flip과 native로 복구.
         return cx, cy, draw_rad, flip, dw, dh, hx, hy
 
     def pickup_spear(self, other):
@@ -328,3 +330,43 @@ class Spear:
     def bind_stage(self, stage):
         self.stage = stage
 
+    def _update_reset_fly(self, now: float):
+        if self.reset_duration <= 0.0:
+            self._finish_reset_landing()
+            return
+
+        t = (now - self.reset_start_time) / self.reset_duration
+        if t >= 1.0:
+            t = 1.0
+        one_minus_t = 1.0 - t
+
+        x0, y0 = self.reset_start_x, self.reset_start_y
+        x1, y1 = self.reset_ctrl_x, self.reset_ctrl_y
+        x2, y2 = self.reset_target_x, self.reset_target_y
+
+        self.x = (one_minus_t ** 2) * x0 + 2 * one_minus_t * t * x1 + (t ** 2) * x2
+        self.y = (one_minus_t ** 2) * y0 + 2 * one_minus_t * t * y1 + (t ** 2) * y2
+
+        dt = game_framework.frame_time
+        self.reset_spin_rad += self.reset_spin_speed * dt
+        self.rad = self.reset_spin_rad
+
+        if t >= 1.0:
+            self._finish_reset_landing()
+
+    def _finish_reset_landing(self):
+        self.state = 'GROUND'
+        self.x = self.reset_target_x
+        self.y = self.reset_target_y
+
+        self.vx = 0.0
+        self.vy = 0.0
+        self.rad = math.radians(180.0)
+        self.ignore_char = None
+        self.ignore_until = 0.0
+
+        try:
+            game_world.remove_collision_object_once(self, 'attack_spear:char')
+            game_world.add_collision_pair('char:spear', None, self)
+        except Exception:
+            pass
