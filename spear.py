@@ -44,6 +44,21 @@ class Spear:
         self.no_char_hit_until = 0.0  # 캐릭터 충돌 유예
         self._owner_release_time = 0.0  # 임시 owner 유지 종료 시각
 
+        # 검에 넣은 거랑 비슷하게 할거
+        self.stage = None
+
+        self.reset_start_x = self.x
+        self.reset_start_y = self.y
+        self.reset_target_x = self.x
+        self.reset_target_y = self.y
+        self.reset_ctrl_x = self.x
+        self.reset_ctrl_y = self.y
+        self.reset_start_time = 0.0
+        self.reset_duration = 0.0
+
+        self.reset_spin_rad = 0.0
+        self.reset_spin_speed = 0.0
+
 
 
     def handle_collision(self, group, other):
@@ -117,7 +132,6 @@ class Spear:
         print('[RESET_TO_GROUND_RANDOM]', 'state=', self.state, 'x=', self.x, 'y=', self.y)
         cw = get_canvas_width()
         self.x = random.randint(40, cw - 40)
-        # ★ 빠졌던 줄: GROUND로 돌아갈 때는 y도 바닥 기준으로 재설정
         self.y = self.ground_y + (self.draw_h - self.embed_px) * 0.5
 
         self.state = 'GROUND'
@@ -310,4 +324,7 @@ class Spear:
         other.state = 'EQUIPPED'
         self.weapon_pick_time = get_time()  # ← 추가
         return
+
+    def bind_stage(self, stage):
+        self.stage = stage
 
