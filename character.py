@@ -373,7 +373,7 @@ class Parry_Hold:
             )
         except:
             is_move_break = False
-
+    
         if is_p_up or is_move_break:
             if getattr(config, 'weapon_mode', 'sword') == 'sword':
                 now = get_time()

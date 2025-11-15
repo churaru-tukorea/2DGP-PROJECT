@@ -4,6 +4,7 @@ import math
 from sword_poses import POSE, LEFT_FLIP_RULE, PIVOT_FROM_CENTER_PX
 from character import Character
 import game_world
+import game_framework
 
 class Sword:
 
@@ -21,6 +22,21 @@ class Sword:
         self.y = self.ground_y + (self.draw_h - self.embed_px) * 0.5
         self.state = 'GROUND'
         self.owner = None
+
+#
+        self.stage = None  # StageColliders 바인딩용
+
+        self.reset_start_x = self.x
+        self.reset_start_y = self.y
+        self.reset_target_x = self.x
+        self.reset_target_y = self.y
+        self.reset_ctrl_x = self.x
+        self.reset_ctrl_y = self.y
+        self.reset_start_time = 0.0
+        self.reset_duration = 0.0
+
+        self.reset_spin_rad = 0.0        # 회전 각도
+        self.reset_spin_speed = 0.0      # rad/sec
 
     def update(self):
         
