@@ -183,7 +183,11 @@ class Sword:
                 query_bb = (0, -1000, cw, 1000)
                 boxes = self.stage.query_boxes(query_bb, margin=0.0)
                 if boxes:
-                    ground_boxes = [b for b in boxes if 'ceil' not in str(b[1]).lower()]
+                    ground_boxes = [
+                        b for b in boxes
+                        if ('ceil' not in str(b[0]).lower())
+                           and ('wall' not in str(b[0]).lower())
+                    ]
                     if not ground_boxes:
                         ground_boxes = boxes
                     _, typ, L, B, R, T = random.choice(ground_boxes)
