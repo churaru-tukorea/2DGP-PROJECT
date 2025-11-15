@@ -39,7 +39,12 @@ class Sword:
         self.reset_spin_speed = 0.0      # rad/sec
 
     def update(self):
-        
+
+        # 리셋 비행 중이면 곡선 이동 / 회전만 처리
+        if self.state == 'RESET_FLY':
+            self._update_reset_fly()
+            return
+
         if getattr(self, '_parry_lock', False):
             self._parry_lock = False
 
@@ -65,6 +70,15 @@ class Sword:
             self.image.clip_composite_draw(0, 0, self.image.w, self.image.h,
                                            3.14159, '', self.x, self.y,
                                            self.draw_w, self.draw_h)
+            return
+
+        if self.state == 'RESET_FLY':
+            self.image.clip_composite_draw(
+                0, 0, self.image.w, self.image.h,
+                self.reset_spin_rad, '',   # 계속 회전
+                self.x, self.y,
+                self.draw_w, self.draw_h
+            )
             return
 
         if self.state == 'EQUIPPED' and self.owner:
@@ -230,4 +244,7 @@ class Sword:
         other.state = 'EQUIPPED'
         self.weapon_pick_time = get_time()  # ← 추가
         return
+
+    def bind_stage(self, stage):
+        self.stage = stage
 
