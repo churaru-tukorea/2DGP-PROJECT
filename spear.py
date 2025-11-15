@@ -231,7 +231,10 @@ class Spear:
             self.x += self.vx * dt
 
             cw = get_canvas_width()
-            if (now - self.spawn_time > self.life_time) or (self.x < -100) or (self.x > cw + 100):
+            margin = self.draw_w * 1.5  # 화면 밖 여유 범위
+
+            # 화면 좌우 끝을 벗어났을 때만 리셋
+            if (self.x < -margin) or (self.x > cw + margin):
                 self.reset_to_ground_random()
 
 
