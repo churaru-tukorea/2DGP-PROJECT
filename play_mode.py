@@ -89,6 +89,7 @@ def init():
 
     if weapon_mode == 'sword':
         sword = Sword(2)
+        sword.bind_stage(stage_colliders) # 스테이지 연동 여기서 해버리기
         game_world.add_object(sword, 2)
 
         # 플레이어가 검을 줍는 충돌 그룹
@@ -104,6 +105,7 @@ def init():
         # 아직 spear는 구현 전이라 이렇게.
         print('[play_mode] spear 모드는 아직 구현 전입니다. 일단 sword 모드로 동작합니다.')
         spear = Spear(2)
+        spear.bind_stage(stage_colliders)
         game_world.add_object(spear, 2)
 
         game_world.add_collision_pair('char:spear', p1, None)

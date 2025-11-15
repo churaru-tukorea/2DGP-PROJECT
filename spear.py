@@ -130,20 +130,79 @@ class Spear:
 #검처럼 땅에 랜덤하게 박히는
     def reset_to_ground_random(self):
         print('[RESET_TO_GROUND_RANDOM]', 'state=', self.state, 'x=', self.x, 'y=', self.y)
-        cw = get_canvas_width()
-        self.x = random.randint(40, cw - 40)
-        self.y = self.ground_y + (self.draw_h - self.embed_px) * 0.5
 
-        self.state = 'GROUND'
-        self.vx = self.vy = 0.0
-        self.rad = math.radians(180.0)
-        self.detach()
+        if self.state == 'RESET_FLY':
+            return
+
+        start_x, start_y = self.x, self.y
+        if self.state == 'EQUIPPED' and self.owner:
+            pose = self._compute_equipped_pose()
+            if pose:
+                cx, cy, *_ = pose
+                start_x, start_y = cx, cy
+
+        cw = get_canvas_width()
+        target_x = random.randint(40, cw - 40)
+        target_y = self.ground_y + (self.draw_h - self.embed_px) * 0.5
+
+
+        if self.stage is not None:
+            try:
+                query_bb = (0, -1000, cw, 1000)
+                boxes = self.stage.query_boxes(query_bb, margin=0.0)
+                if boxes:
+                    ground_boxes = [b for b in boxes if 'ceil' not in str(b[1]).lower()]
+                    if not ground_boxes:
+                        ground_boxes = boxes
+                    _, typ, L, B, R, T = random.choice(ground_boxes)
+
+                    margin_x = self.draw_w * 0.5 + 4
+                    if R - L <= margin_x * 2:
+                        target_x = (L + R) * 0.5
+                    else:
+                        target_x = random.uniform(L + margin_x, R - margin_x)
+
+                    target_y = T + (self.draw_h - self.embed_px) * 0.5
+            except Exception:
+                pass  # 실패 시 기본값 유지
+        #  소유자 해제
+        prev_owner = self.owner
+        self.owner = None
+        if prev_owner is not None and getattr(prev_owner, 'weapon', None) is self:
+            prev_owner.weapon = None
+
+        self.vx = 0.0
+        self.vy = 0.0
+        self.ignore_char = None
+        self.ignore_until = 0.0
 
         try:
             game_world.remove_collision_object_once(self, 'attack_spear:char')
-            game_world.add_collision_pair('char:spear', None, self)
+            game_world.remove_collision_object_once(self, 'char:spear')
         except Exception:
             pass
+
+        #  베지어 준비
+        self.reset_start_x = start_x
+        self.reset_start_y = start_y
+        self.reset_target_x = target_x
+        self.reset_target_y = target_y
+
+        mid_x = (start_x + target_x) * 0.5
+        base_mid_y = max(start_y, target_y)
+        dist_x = abs(target_x - start_x)
+        arc_h = max(80.0, dist_x * 0.3)
+
+        self.reset_ctrl_x = mid_x
+        self.reset_ctrl_y = base_mid_y + arc_h
+
+        self.reset_start_time = get_time()
+        self.reset_duration = 0.9
+        self.reset_spin_rad = 0.0
+        self.reset_spin_speed = 10.0
+
+        self.state = 'RESET_FLY'
+        self.x, self.y = start_x, start_y
 
     def update(self):
         now = get_time()
@@ -197,6 +256,15 @@ class Spear:
                 self.draw_w, self.draw_h
             )
             print('spear GROUND', self.x, self.y)
+            self._debug_draw_obb()
+            return
+
+        if self.state == 'RESET_FLY':
+            self.image.clip_composite_draw(
+                0, 0, self.image.w, self.image.h,
+                self.reset_spin_rad, '', self.x, self.y,
+                self.draw_w, self.draw_h
+            )
             self._debug_draw_obb()
             return
 
