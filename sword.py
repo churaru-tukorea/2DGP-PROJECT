@@ -158,20 +158,76 @@ class Sword:
         if prev is not None and getattr(prev, 'weapon', None) is self:
             prev.weapon = None
 
-
-
     def reset_to_ground_random(self):
-      cw = get_canvas_width()
-      self.x = random.randint(40, cw - 40)
-      self.state = 'GROUND'
-      self.detach()
-      try:
-          import game_world
-          game_world.remove_collision_object_once(self, 'attack_sword:char')
-          # 줍기 그룹에 재등록
-          game_world.add_collision_pair('char:sword', None, self)
-      except Exception:
-          pass
+        """어디선가 날아온 칼을 스테이지 위 랜덤 위치로 곡선 이동시키기."""
+        # 이미 리셋 중이면 무시
+        if self.state == 'RESET_FLY':
+            return
+
+        # 시작 위치 계산
+        start_x, start_y = self.x, self.y
+        if self.state == 'EQUIPPED' and self.owner:
+            pose = self._compute_equipped_pose()
+            if pose:
+                cx, cy, *_ = pose
+                start_x, start_y = cx, cy
+
+        # 기본 타겟 = 지면 랜덤으로 해놓아서 안전빵
+        cw = get_canvas_width()
+        target_x = random.randint(40, cw - 40)
+        target_y = self.ground_y + (self.draw_h - self.embed_px) * 0.5
+
+        # 스테이지가 있으면, 천장 제외 랜덤 플랫폼 위로
+        if self.stage is not None:
+            try:
+                query_bb = (0, -1000, cw, 1000)
+                boxes = self.stage.query_boxes(query_bb, margin=0.0)
+                if boxes:
+                    ground_boxes = [b for b in boxes if 'ceil' not in str(b[1]).lower()]
+                    if not ground_boxes:
+                        ground_boxes = boxes
+                    _, typ, L, B, R, T = random.choice(ground_boxes)
+
+                    margin_x = self.draw_w * 0.5 + 4
+                    if R - L <= margin_x * 2:
+                        target_x = (L + R) * 0.5
+                    else:
+                        target_x = random.uniform(L + margin_x, R - margin_x)
+
+                    target_y = T + (self.draw_h - self.embed_px) * 0.5
+            except Exception:
+                # 실패하면 그냥 바닥 랜덤 유지
+                pass
+
+        self.detach()  # owner.weapon 정리까지 포함
+
+        try:
+            game_world.remove_collision_object_once(self, 'attack_sword:char')
+            game_world.remove_collision_object_once(self, 'char:sword')
+        except Exception:
+            pass
+
+        # 5) 베지어 파라미터 넣기(곡선이동을 위해)
+        self.reset_start_x = start_x
+        self.reset_start_y = start_y
+        self.reset_target_x = target_x
+        self.reset_target_y = target_y
+
+        mid_x = (start_x + target_x) * 0.5
+        base_mid_y = max(start_y, target_y)
+        dist_x = abs(target_x - start_x)
+        arc_h = max(80.0, dist_x * 0.3)
+
+        self.reset_ctrl_x = mid_x
+        self.reset_ctrl_y = base_mid_y + arc_h
+
+        self.reset_start_time = get_time()
+        self.reset_duration = 0.9
+        self.reset_spin_rad = 0.0
+        self.reset_spin_speed = 8.0
+
+        self.state = 'RESET_FLY'
+        self.x, self.y = start_x, start_y
 
     def _update_reset_fly(self):
         now = get_time()
