@@ -173,6 +173,46 @@ class Sword:
       except Exception:
           pass
 
+    def _update_reset_fly(self):
+        now = get_time()
+        if self.reset_duration <= 0.0:
+            self._finish_reset_landing()
+            return
+
+        t = (now - self.reset_start_time) / self.reset_duration
+        if t >= 1.0:
+            t = 1.0
+        one_minus_t = 1.0 - t
+
+        x0, y0 = self.reset_start_x, self.reset_start_y
+        x1, y1 = self.reset_ctrl_x, self.reset_ctrl_y
+        x2, y2 = self.reset_target_x, self.reset_target_y
+
+        # 베지어를 사용한 식 사용
+        self.x = (one_minus_t ** 2) * x0 + 2 * one_minus_t * t * x1 + (t ** 2) * x2
+        self.y = (one_minus_t ** 2) * y0 + 2 * one_minus_t * t * y1 + (t ** 2) * y2
+
+        dt = game_framework.frame_time
+        self.reset_spin_rad += self.reset_spin_speed * dt
+
+        if t >= 1.0:
+            self._finish_reset_landing()
+
+    def _finish_reset_landing(self):
+        #타겟 위치에 돌아오면 ground로 전환하는 함수
+        self.state = 'GROUND'
+        self.x = self.reset_target_x
+        self.y = self.reset_target_y
+        self.owner = None
+        self.reset_spin_rad = 0.0
+
+        try:
+            # 공격 판정 제거, 줍기 그룹 다시 등록
+            game_world.remove_collision_object_once(self, 'attack_sword:char')
+            game_world.add_collision_pair('char:sword', None, self)
+        except Exception:
+            pass
+
 
     def _compute_equipped_pose(self):
         owner = self.owner
