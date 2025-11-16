@@ -1033,68 +1033,7 @@ class Character:
         l, b, w, h = sprite[ACTION[key]][idx]
         return key, idx, (w, h)
 
-    def _draw_weapon_if_any(self):
-        if not self.weapon:
-            return
 
-        if getattr(self, 'action', None) == 'parry_hold':
-            return
-
-        cur = self._current_frame_info()
-        if not cur:
-            return
-        act, idx, (fw, fh) = cur
-
-
-        lst = POSE.get(act)
-        if not lst or idx >= len(lst):
-            return
-        pose = lst[idx]
-        if not pose:
-            return
-
-        ox_src, oy_src = pose['offset_src_px']
-        deg = pose['deg']
-
-
-        sx = self.draw_w / float(fw)
-        sy = self.draw_h / float(fh)
-
-
-        if self.face_dir == 1:
-            hx = self.x - self.draw_w * 0.5 + ox_src * sx
-            deg_prime, flip = deg, ''
-        else:
-            hx = self.x + self.draw_w * 0.5 - ox_src * sx  # 좌우 미러
-            if LEFT_FLIP_RULE == 'NEGATE':
-                deg_prime, flip = -deg, 'h'
-            elif LEFT_FLIP_RULE == 'KEEP':
-                deg_prime, flip = deg, 'h'
-            else:  # 'ADD_PI'
-                deg_prime, flip = deg + 180.0, 'h'
-
-        hy = self.y - self.draw_h * 0.5 + oy_src * sy
-
-
-        img = self.weapon.image  # real_sword.png (15x31)
-        sw, sh = img.w, img.h
-        scale = self.draw_h / 50.0
-        dw, dh = int(sw * scale), int(sh * scale)
-
-        dx, dy = PIVOT_FROM_CENTER_PX  # 검 '센터'→'손잡이' 벡터(px)
-        dx *= scale
-        dy *= scale
-        rad = math.radians(deg_prime)
-        rx = dx * math.cos(rad) - dy * math.sin(rad)
-        ry = dx * math.sin(rad) + dy * math.cos(rad)
-
-        cx = hx + rx
-        cy = hy + ry
-
-        img.clip_composite_draw(0, 0, sw, sh, rad, flip, cx, cy, dw, dh)
-
-        # 디버그: 손 지점 확인용 점
-        draw_rectangle(hx - 2, hy - 2, hx + 2, hy + 2)
 
     def _draw_shield_if_parry(self):
 
