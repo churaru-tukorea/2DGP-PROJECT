@@ -1,14 +1,18 @@
 from types import SimpleNamespace
 
-from pico2d import load_image, get_time, SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_RIGHT, SDLK_LEFT, SDLK_a, \
-    get_canvas_height, draw_rectangle, load_font, draw_line,get_canvas_width
-from sdl2 import SDLK_j, SDLK_p, SDLK_k, SDLK_i
-import game_world
-import os
+from pico2d import (
+    load_image, get_time,
+    SDL_KEYDOWN, SDL_KEYUP,
+    SDLK_SPACE,
+    SDLK_LEFT, SDLK_RIGHT,
+    SDLK_a, SDLK_d, SDLK_j, SDLK_k, SDLK_p, SDLK_i,
+    SDLK_KP_1, SDLK_KP_2, SDLK_KP_3, SDLK_KP_5,
+    get_canvas_height, get_canvas_width,
+    draw_rectangle, draw_line, load_font,
+)
 
-from pico2d import (SDL_KEYDOWN, SDL_KEYUP,
-                    SDLK_LEFT, SDLK_RIGHT, SDLK_j, SDLK_k, SDLK_p,SDLK_i,
-                    SDLK_a, SDLK_d, SDLK_KP_1, SDLK_KP_2, SDLK_KP_3, SDLK_KP_5) # 2p키까지 감안해서 그냥 한번에 해버리기
+import game_world
+
 
 import config
 # 애니 좌표/액션 인덱스:
