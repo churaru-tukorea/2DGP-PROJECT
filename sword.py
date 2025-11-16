@@ -334,16 +334,6 @@ class Sword:
         xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
         return min(xs), min(ys), max(xs), max(ys)
 
-    def pickup_sword(self, other):
-        if self.weapon:  # 이미 들고 있으면 무시
-            return
-        self.weapon = other
-        game_world.remove_collision_object_once(other, 'char:sword')
-        print('무기 장착 (월드 유지, EQUIPPED)')
-        other.attach_to(self)
-        other.state = 'EQUIPPED'
-        self.weapon_pick_time = get_time()  # ← 추가
-        return
 
     def bind_stage(self, stage):
         self.stage = stage
