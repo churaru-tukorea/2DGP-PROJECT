@@ -1075,31 +1075,6 @@ class Character:
         halfh = self.draw_h // 2 - 8
         return halfw, halfh
 
-    def _draw_weapon_timer_ui(self):
-        if not (self.weapon and self.weapon_pick_time):
-            return
-        now = get_time()
-        remain = max(0.0, self.weapon_time_limit - (now - self.weapon_pick_time))
-        frac = remain / self.weapon_time_limit
-
-        bar_w, bar_h = 140, 8
-        margin = 20
-        y1 = self.canvas_h - 20
-        if self.pid == 1:
-            x1 = margin
-            x2 = x1 + bar_w
-        else:
-            x2 = self.canvas_w - margin
-            x1 = x2 - bar_w
-
-        # 외곽선
-        draw_rectangle(x1, y1, x2, y1 + bar_h)
-
-        # 내부 채우기(선 여러 줄로 채움)
-        fill_w = int(bar_w * frac)
-        if fill_w > 0:
-            for yy in range(int(y1) + 1, int(y1 + bar_h)):
-                draw_line(x1 + 1, yy, x1 + fill_w - 1, yy)
 
     def _solve_stage_collision(self, stage):
         cur_bb = self.get_bb()
