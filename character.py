@@ -19,7 +19,7 @@ import config
 from sprite_tuples import ACTION, sprite, sweat
 from state_machine import StateMachine
 import math
-from sword_poses import POSE, LEFT_FLIP_RULE, PIVOT_FROM_CENTER_PX
+
 import game_framework
 
 
@@ -214,12 +214,7 @@ class Jump_Land:
 
 
     def exit(self, event):
-
-        if 2 <= self.boy.jump_frame <= 7:
-            now = get_time()
-            dt = now - self._last_time
-            self._last_time = now
-            self.boy.x += self.boy.face_dir * self._roll_speed * dt
+        pass
 
     def do(self):
         pass
