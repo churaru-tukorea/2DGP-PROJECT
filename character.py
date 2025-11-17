@@ -413,7 +413,10 @@ class Character:
         self.pid = pid
         #self.font = load_font('ENCR10B.TTF', 16)
         self.move_dir = 0
-        self.image = load_image('project_character_sheet.png')
+        if self.pid == 1:
+            self.image = load_image('project_character_sheet.png')
+        else:  # 2P 이상은 전부 2P 시트 사용
+            self.image = load_image('project_character_sheet_2p.png')
         self.move_timer = 0.0
 
         if keymap is None:
