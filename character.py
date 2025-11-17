@@ -341,6 +341,11 @@ class Parry_Hold:
 
     def enter(self, state_event):
         self.boy.action = "parry_hold"
+
+        self.boy.move_dir = 0
+        self.boy.vx = 0.0
+        self.boy.right_pressed = False
+        self.boy.left_pressed = False
         now = get_time()
         mode = getattr(config, 'weapon_mode', 'sword')  # 기본은 sword 가정
         if mode == 'spear':
@@ -572,8 +577,8 @@ class Character:
             self.IDLE: {
                 right_down: self.MOVE,
                 left_down: self.MOVE,
-                right_up: self.MOVE,
-                left_up: self.MOVE,
+                lambda e: right_up(e) and self.left_pressed: self.MOVE,
+                lambda e: left_up(e) and self.right_pressed: self.MOVE,
                 j_down: self.JUMP_UP,
                 p_down: self.PARRY_HOLD,
                 attack_ready: self.ATTACK_FIRE,
@@ -582,8 +587,11 @@ class Character:
             self.MOVE: {
                 right_down: self.IDLE,
                 left_down: self.IDLE,
-                right_up: self.IDLE,
-                left_up: self.IDLE,
+                lambda e: right_up(e) and not self.left_pressed: self.IDLE,
+                lambda e: left_up(e) and not self.right_pressed: self.IDLE,
+        # 반대쪽이 눌려있으면 MOVE 유지
+                lambda e: right_up(e) and self.left_pressed: self.MOVE,
+                lambda e: left_up(e) and self.right_pressed: self.MOVE,
                 j_down: self.JUMP_UP,
                 attack_ready: self.ATTACK_FIRE,
                 p_down: self.PARRY_HOLD,
@@ -622,6 +630,7 @@ class Character:
                 right_down: self.MOVE,
                 left_down: self.MOVE,
                 (lambda e: e[0] == 'PARRY_EXPIRE'): self.IDLE,
+                (lambda e: e[0] == 'BREAK_TO_MOVE'): self.MOVE
 
             },
             self.ATTACK_SPEAR: {
@@ -666,10 +675,17 @@ class Character:
             self.state_machine.handle_state_event(('JUMP_FALL', None))
 
 #창 말고도 그냥 검에도 하게
+
         if event.type == SDL_KEYDOWN and event.key == SDLK_p:
             now = get_time()
+
+            # 이미 패링 상태면(유지시간 안에서) 다시 누르기 금지
+            if self.state_machine.cur_state is self.PARRY_HOLD:
+                return
+
+            # 쿨타임 중이면 시작 불가
             if self.parry_cooldown_until and now < self.parry_cooldown_until:
-                return  # 쿨다운 중이면 시작 불가
+                return
 
         # 공격: 즉시 전이 X, 예약만 걸고 반환
         if event.type == SDL_KEYDOWN and event.key == SDLK_k:

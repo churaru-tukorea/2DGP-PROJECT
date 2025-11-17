@@ -300,7 +300,7 @@ class Spear:
         for i in range(4):
             x1, y1 = pts[i]
             x2, y2 = pts[(i + 1) % 4]
-            draw_line(int(x1), int(y1), int(x2), int(y2))
+            #draw_line(int(x1), int(y1), int(x2), int(y2))
 
 
 
