@@ -36,6 +36,7 @@ def handle_events():
 
         elif event.type == SDL_KEYDOWN and event.key == SDLK_ESCAPE:
             running = False
+            exit()
 
         # 플레이 중에도 i를 누르면 무기 선택 모드로 넘어감
         elif event.type == SDL_KEYDOWN and event.key == SDLK_F1:
