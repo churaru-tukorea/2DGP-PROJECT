@@ -383,12 +383,14 @@ class Parry_Hold:
         now = get_time()
 
 
+        # 이동키로 끊기
         if self.boy.right_pressed or self.boy.left_pressed:
             if getattr(config, 'weapon_mode', 'sword') == 'sword':
                 self.boy.parry_active_until = None
                 self.boy.parry_cooldown_until = now + 5.0
 
             self.boy.state_machine.handle_state_event(('BREAK_TO_MOVE', None))
+            self.boy.action = "move"
             return
 
 
@@ -405,6 +407,7 @@ class Parry_Hold:
             self.boy.image.clip_draw(l, b, w, h, self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
         else:
             self.boy.image.clip_composite_draw(l, b, w, h, 0, 'h', self.boy.x, self.boy.y, self.boy.draw_w, self.boy.draw_h)
+
 
 
 class Character:
