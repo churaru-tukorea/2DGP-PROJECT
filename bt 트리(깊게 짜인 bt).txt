@@ -1,0 +1,141 @@
+bt 트리(너무 길고 장황해서 4단계로 분리해서 나눔. 기초 거대 루트(디폴트 무빙도) / 무기 쟁탈시 / 검 모드시 / 창 모드 시
+
+
+1. 기초 거대 루트
+
+[SEL] Root (최상위 우선순위)
+ │
+ ├── [SEQ] WeaponEquippedPhase (1순위: 무기 든 상태 전투)
+ │    │
+ │    ├── [COND] bb_weapon_owner != NONE (누군가 무기를 들었는가?)
+ │    │
+ │    └── [SEL] EquippedPhaseSelector (검이냐 창이냐 분기)
+ │         ├── [SEQ] SwordPhaseTree (검 모드 로직 진입)
+ │         └── [SEQ] SpearPhaseTree (창 모드 로직 진입)
+ │
+ ├── [SEQ] WeaponScramblePhase (2순위: 무기 쟁탈전)
+ │    │
+ │    ├── [COND] bb_weapon_owner == NONE (아무도 무기가 없는가?)
+ │    │
+ │    └── [SEL] ScrambleTree (상황별 줍기 전략)
+ │
+ └── [SEL] DefaultMovement (3순위: 기본 행동)
+      ├── [ACT] WanderAround (주변 배회)
+      └── [ACT] Fidget (제자리 점프/대기)
+
+
+
+2. 무기 쟁탈
+WeaponScramblePhase 안의 [SEL] ScrambleTree를 펼친 것입니다.
+
+Plaintext
+
+[SEL] ScrambleTree (쟁탈전 우선순위)
+ │
+ ├── [SEQ] ScrambleResetFlyHandler (1순위: 날아오는 무기 처리)
+ │    ├── [COND] bb_weapon_state == RESET_FLY (무기가 공중에 떠서 리셋 중?)
+ │    ├── [COND] IsLandingSpotSafe? (착지 지점 선점이 이득인가?)
+ │    └── [ACT] MoveToLandingPoint (착지 예상 지점으로 이동 및 대기)
+ │
+ ├── [SEQ] ScrambleContestGround (2순위: 떨어진 무기 줍기)
+ │    ├── [COND] bb_weapon_state == GROUND (무기가 바닥에 있는가?)
+ │    ├── [COND] IsContestAdvantage? (내가 줍기에 유리한 거리인가?)
+ │    └── [ACT] RushAndGrab (무기로 달려가서 줍기)
+ │
+ └── [ACT] ScrambleFallback (3순위: 눈치보기)
+      (무리하게 줍지 않고 유리한 지형/아이템 쪽으로 이동)
+
+
+
+
+
+
+
+
+3. 검 모드 
+EquippedPhaseSelector 안의 [SEQ] SwordPhaseTree를 펼친 것입니다.
+
+Plaintext
+
+[SEQ] SwordPhaseTree
+ │
+ ├── [COND] bb_weapon_type == SWORD (현재 무기가 검인가?)
+ │
+ └── [SEL] SwordRoleSelector (공수 전환)
+      │
+      ├── [SEQ] SwordAttackerTree (공격자 로직)
+      │    ├── [COND] bb_weapon_owner == SELF (내가 들었나?)
+      │    └── [SEL] AttackerBehavior (공격 행동 우선순위)
+      │         ├── [SEQ] TimeLowAllIn (시간 임박 올인)
+      │         │    ├── [COND] time_left <= 3.0
+      │         │    └── [ACT] RushAttack (닥치고 돌격)
+      │         │
+      │         ├── [SEQ] ItemHunt (여유 시 아이템)
+      │         │    ├── [COND] time_left >= 10.0
+      │         │    ├── [COND] ItemAvailable
+      │         │    └── [ACT] GoForItem
+      │         │
+      │         ├── [SEL] CreateAngle (패링 각 깨기 심리전)
+      │         │    ├── [SEQ] SideStep (측면 이동 후 공격)
+      │         │    ├── [SEQ] DeepClose (밀착 후 공격)
+      │         │    └── [SEQ] FakeTiming (엇박자 공격)
+      │         │
+      │         └── [ACT] ChaseAndCorner (기본 추격)
+      │
+      └── [SEQ] SwordDefenderTree (방어자 로직)
+           ├── [COND] bb_weapon_owner == ENEMY (적이 들었나?)
+           └── [SEL] DefenderBehavior (방어 행동 우선순위)
+                ├── [SEQ] EmergencyParry (긴급 패링)
+                │    ├── [COND] Dist < PARRY_RANGE (초근접?)
+                │    ├── [COND] ParryReady (쿨타임 끝남?)
+                │    └── [ACT] TryParry (패링 시도)
+                │
+                ├── [SEQ] RunAway (도망)
+                │    ├── [COND] NotCornered (구석 아님?)
+                │    └── [ACT] Flee (적 반대/유리한 곳으로 이동)
+                │
+                └── [SEQ] PrepareParry (구석 패링 승부)
+                     ├── [COND] IsCornered (구석에 몰림?)
+                     ├── [COND] ParryReady (쿨타임 끝남?)
+                     └── [ACT] WaitAndParry (대기하다 패링)
+
+
+
+
+
+
+
+4. 창 모드 
+EquippedPhaseSelector 안의 [SEQ] SpearPhaseTree를 펼친 것입니다.
+
+Plaintext
+
+[SEQ] SpearPhaseTree
+ │
+ ├── [COND] bb_weapon_type == SPEAR (현재 무기가 창인가?)
+ │
+ └── [SEL] SpearRoleSelector (공수 전환)
+      │
+      ├── [SEQ] SpearAttackerTree (공격자 로직)
+      │    ├── [COND] bb_weapon_owner == SELF
+      │    └── [SEL] AttackerBehavior
+      │         ├── [SEQ] TimeLowAllIn (시간 임박 막 던지기)
+      │         ├── [SEQ] ItemHunt (아이템 먹기)
+      │         ├── [SEQ] AlignYAndThrow (정석 공격)
+      │         │    ├── [COND] X_Distance_Good (던지기 좋은 거리?)
+      │         │    ├── [ACT] AlignYAxis (점프 등으로 Y축 맞추기)
+      │         │    └── [ACT] ThrowSpear (투척)
+      │         └── [ACT] AdjustDistance (거리 조절 이동)
+      │
+      └── [SEQ] SpearDefenderTree (방어자 로직)
+           ├── [COND] bb_weapon_owner == ENEMY
+           └── [SEL] DefenderBehavior
+                ├── [SEQ] EvadeProjectile (투사체 회피)
+                │    ├── [COND] ProjectileThreat (창 날아옴?)
+                │    └── [ACT] Dodge (점프/숙이기/이동)
+                │
+                ├── [SEQ] DesyncYAxis (Y축 비틀기 - 1순위 예방)
+                │    ├── [COND] Y_Aligned (적이랑 높이가 같나?)
+                │    └── [ACT] JumpOrDrop (층계 이동/점프)
+                │
+                └── [ACT] MaintainSafeDist (X축 거리 유지)
