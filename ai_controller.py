@@ -385,7 +385,7 @@ class CharacterAI:
         return BehaviorTree.SUCCESS
 
     def act_scramble_to_weapon(self):
-        # 1. 컨텍스트 및 무기 상태 검증
+        # 컨텍스트 및 무기 상태 검증
         if self.stage is None or self.weapon_getter is None:
             return BehaviorTree.FAIL
         weapon = self.weapon_getter()
@@ -399,7 +399,7 @@ class CharacterAI:
             self._reset_scramble_plan()
             return BehaviorTree.FAIL
 
-        # 2. 플랜 생성
+        # 플랜 생성
         if self.scramble_plan is None:
             self.scramble_plan = scramble_nav.build_scramble_plan_to_point(
                 self.stage, self.me.x, self.me.y, weapon.x, weapon.y
@@ -411,60 +411,67 @@ class CharacterAI:
                 self._set_move_dir(1 if dx > 0 else -1) if abs(dx) > 3.0 else self._set_move_dir(0)
                 return BehaviorTree.RUNNING
 
-        # 경로 리셋 조건 강화
+        # 경로 이탈(추락) 감지
         if self.scramble_segment_index < len(self.scramble_plan.segments):
             seg = self.scramble_plan.segments[self.scramble_segment_index]
             platforms = scramble_nav.build_platforms_from_stage(self.stage)
             target_plat_def = platforms.get(seg.platform)
 
-            # 내 발밑이 목표보다 터무니없이 낮으면(추락) 그때만 리셋
-            if target_plat_def and self.me.y < target_plat_def.T - 80:  # 50 -> 80으로 여유 줌
-                # print(f"[AI] 추락 확인. 리셋.")
+            # 내 발밑이 목표보다 터무니없이 낮으면 리셋
+            if target_plat_def and self.me.y < target_plat_def.T - 80:
                 self._reset_scramble_plan()
                 return BehaviorTree.RUNNING
 
-        # 4. 세그먼트 실행
-        # 마지막 단계면 무기로 이동
+        # 세그먼트 실행
         if self.scramble_segment_index >= len(self.scramble_plan.segments):
+            # 도착 후 무기 줍기 미세 조정
             dx = weapon.x - self.me.x
             self._set_move_dir(1 if dx > 0 else -1) if abs(dx) > 5.0 else self._set_move_dir(0)
             return BehaviorTree.RUNNING
 
         seg = self.scramble_plan.segments[self.scramble_segment_index]
 
-        # 걷기 로직: 오차 범위(Margin)를 넓혀서 왔다갔다 방지
+        # 걷기 로직
         if seg.kind == 'walk':
             target_x = seg.target_x
-            # 5.0 픽셀 이내면 도착한 것으로 간주 (떨림 방지)
             if abs(target_x - self.me.x) > 10.0:
                 self._set_move_dir(1 if target_x > self.me.x else -1)
             else:
-                self._set_move_dir(0)  # 도착하면 멈춤
+                self._set_move_dir(0)
                 self.scramble_segment_index += 1
 
-        # 점프 로직: 확실히 멈춘 뒤 점프
+        # 점프 로직
         elif seg.kind == 'jump':
+            # 착지 확인: 내가 지금 목표 플랫폼 위에 있는가?
+            platforms = scramble_nav.build_platforms_from_stage(self.stage)
+            cur_plat = scramble_nav.find_platform_under_point(platforms, self.me.x, self.me.y)
+            dest_plat_name = seg.jump_template.to_platform
+
+            # 목표 플랫폼에 도착했으면 다음 단계로 진행
+            if cur_plat and cur_plat.name == dest_plat_name:
+                self.scramble_segment_index += 1
+                return BehaviorTree.RUNNING
+
+            # 점프 진행 중: 공중에 있거나, 점프 키를 누르는 중이라면?
+            # -> 절대 걷기 로직으로 넘어가지 말고, '점프 방향'을 계속 유지
+            # jump_end_time > 0은 현재 키를 누르고 있다는 뜻 (0.0이 될 때까지 대기)
+            if self._is_in_air() or self.jump_end_time > 0:
+                self._set_move_dir(seg.dir)
+                return BehaviorTree.RUNNING
+
+            # 점프 시도: 아직 출발 플랫폼에 있다면
             tx1, tx2 = seg.takeoff_range
 
-            # 범위 안에 들어왔는지 체크
             if tx1 <= self.me.x <= tx2:
-                # 범위 안이다!
-
-                # 1. 일단 멈춘다 (관성으로 미끄러져서 벽 박는거 방지)
+                # 범위 안: 멈춰서 점프 실행
                 self._set_move_dir(0)
-
-                # 2. 바닥에 있고 점프 쿨타임 끝났으면 점프
-                if not self._is_in_air() and self.jump_end_time <= 0.0:
-                    # 점프 방향 입력
+                if self.jump_end_time <= 0.0:  # 쿨타임/키누름 끝났을 때만
                     self._set_move_dir(seg.dir)
                     hold_time = seg.jump_template.hold_time if seg.jump_template else 0.4
                     self._tap_jump(hold_time)
-
-                    # 3. 세그먼트 완료 처리 (점프 했으니까 넘어감)
-                    self.scramble_segment_index += 1
-
+                    # 중요: 여기서 index += 1을 하지 않음! (착지할 때까지 대기)
             else:
-                # 범위 밖이면 범위의 "중심"을 향해 이동
+                # 범위 밖: 도움닫기 위치로 이동
                 center_x = (tx1 + tx2) / 2
                 self._set_move_dir(1 if center_x > self.me.x else -1)
 
