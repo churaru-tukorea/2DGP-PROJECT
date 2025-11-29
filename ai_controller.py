@@ -163,7 +163,36 @@ class CharacterAI:
         return BehaviorTree.SUCCESS
 
     def act_simple_attack_mode(self):#이게 단순한 공격인건 나중에 뭐가 어떻게 추가될지 몰라서...
-        pass
+        #- 내가 무기를 들고 있으면:
+        #적과의 거리가 멀면 → 다가간다.
+        #적과의 거리가 어느 정도면 → 가끔 공격 키를 누른다.
+        #(아직 패링, 타이머, 아이템, 각 싸움 전부 무시. 정확히는 구체적으로 어떻게 할지 아직 모르겠음...)
+        
+        enemy = self.enemy
+        me = self.me
+
+        if enemy is None or me is None:
+            return BehaviorTree.FAIL
+
+        dx = enemy.x - me.x
+        dist = abs(dx)
+
+        # 1) 거리 조절
+        desired_range = 80.0  # 이 거리 안에서 공격
+        if dist > desired_range:
+            # 적 쪽으로 다가감
+            self._set_move_dir(+1 if dx > 0 else -1)
+        else:
+            # 너무 붙었으면 살짝 멈출 수도 있음
+            self._set_move_dir(0)
+
+        # 2) 공격 타이밍 (쿨타임 기반)
+        now = get_time()
+        if now >= self.next_attack_time and dist <= desired_range + 20.0:
+            self.next_attack_time = now + random.uniform(0.6, 1.2)
+            self._tap_attack()
+
+        return BehaviorTree.SUCCESS
 
     def act_simple_defense_mode(self): # 이것도 다순한겨 글서
         pass
