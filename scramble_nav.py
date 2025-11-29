@@ -119,13 +119,23 @@ def find_platform_under_point(
     best: Optional[PlatformDef] = None
     best_dy = 1e9
 
+    # 가장자리 인식을 위해 x축 여유를 10픽셀 정도 줌
+    margin_x = 10.0
+
     for plat in platforms.values():
-        if not (plat.L <= x <= plat.R):
+        # x좌표가 플랫폼 범위 안(여유폭 포함)에 있는지
+        if not (plat.L - margin_x <= x <= plat.R + margin_x):
             continue
+
+        # y좌표(발 위치)가 플랫폼 상단 근처인지
+        # (캐릭터 y는 중심이므로, 발바닥 보정 없이 들어온다면 오차가 클 수 있음.
+        # 보통 입력 y는 캐릭터 중심이므로, 플랫폼 T보다 위/아래 검사)
         dy = abs(y - plat.T)
+
         if dy <= vertical_tolerance and dy < best_dy:
             best_dy = dy
             best = plat
+
     return best
 
 
@@ -302,32 +312,50 @@ def build_scramble_plan_to_point(
     """현재 위치에서 목표 지점까지의 ScramblePlan 생성"""
 
     platforms = build_platforms_from_stage(stage_colliders)
+
+    # [수정] 내 위치(Start Platform) 찾기 강화
+    # 1차 시도: 정확한 내 발밑
     start_plat = find_platform_under_point(platforms, me_x, me_y)
+
+    # 2차 시도: 발밑에 없다면 좌우로 조금씩 더듬어서 찾기 (모서리에 서 있을 경우 대비)
+    if start_plat is None:
+        # 왼쪽 30px, 오른쪽 30px 체크
+        start_plat = find_platform_under_point(platforms, me_x - 30, me_y)
+        if start_plat is None:
+            start_plat = find_platform_under_point(platforms, me_x + 30, me_y)
+
+    # 목표 위치 플랫폼 찾기
     target_plat = find_platform_under_point(platforms, target_x, target_y)
 
-    if start_plat is None or target_plat is None:
+    # 그래도 없으면 포기 (진짜 공중이거나 맵 밖임)
+    if start_plat is None:
+        # print(f"[ScrambleNav] 실패: 내 위치({me_x:.1f}, {me_y:.1f})에 해당하는 플랫폼을 못 찾음.")
         return None
 
-    # 1. 플랫폼 경로 이름 리스트 확보 (예: ['floor', 'r3_L2', 'r2_L'])
+    if target_plat is None:
+        # print(f"[ScrambleNav] 실패: 목표 위치({target_x:.1f}, {target_y:.1f})에 해당하는 플랫폼을 못 찾음.")
+        return None
+
+    # 1. 플랫폼 경로 이름 리스트 확보
     path_names = find_platform_path(start_plat, target_plat, JUMP_TEMPLATES)
     if path_names is None:
         return None
 
     segments = []
 
-    # 2. 같은 플랫폼인 경우: 걷기만 하면 됨
+    # 2. 같은 플랫폼인 경우: 걷기
     if len(path_names) == 1:
         segments.append(ScrambleSegment("walk", start_plat.name, target_x=start_plat.clamp_x(target_x)))
         return ScramblePlan(segments, start_plat.name, target_plat.name)
 
     # 3. 경로를 따라 세그먼트 생성
-    curr_x_cursor = me_x
+    curr_x_cursor = me_x  # 시작은 내 실제 위치부터
 
     for i in range(len(path_names) - 1):
         curr_name = path_names[i]
         next_name = path_names[i + 1]
 
-        # (a) 최적 점프 선택
+        # (a) 최적 점프 선택 (내 현재 가상 위치에서 가장 가까운 점프대)
         best_jt = _pick_best_jump(curr_name, next_name, curr_x_cursor, platforms, JUMP_TEMPLATES)
         if best_jt is None: return None
 
@@ -336,6 +364,7 @@ def build_scramble_plan_to_point(
         curr_plat_def = platforms[curr_name]
 
         # (b) 점프 지점까지 걷기
+        # 주의: clamp_x를 통해 플랫폼 밖으로 나가는 경로 방지
         segments.append(ScrambleSegment(
             kind="walk",
             platform=curr_name,

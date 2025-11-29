@@ -402,6 +402,8 @@ class CharacterAI:
             )
             self.scramble_segment_index = 0
             if self.scramble_plan is None or not self.scramble_plan.segments:
+                print(
+                    f"[AI Warning] 경로 생성 실패! 내위치:({self.me.x:.1f}, {self.me.y:.1f}) -> 무기:({weapon.x:.1f}, {weapon.y:.1f})")
                 dx = weapon.x - self.me.x
                 self._set_move_dir(1 if dx > 0 else -1) if abs(dx) > 3.0 else self._set_move_dir(0)
                 return BehaviorTree.RUNNING
@@ -411,19 +413,30 @@ class CharacterAI:
             seg = self.scramble_plan.segments[self.scramble_segment_index]
             platforms = scramble_nav.build_platforms_from_stage(self.stage)
             target_plat_def = platforms.get(seg.platform)
+            # 80px 이상 아래로 떨어졌을 때만 리셋
             if target_plat_def and self.me.y < target_plat_def.T - 80:
                 self._reset_scramble_plan()
                 return BehaviorTree.RUNNING
 
-        # 4. 세그먼트 실행
+        # 4. [수정됨] 세그먼트 완료 후 처리 (여기가 문제의 원인)
         if self.scramble_segment_index >= len(self.scramble_plan.segments):
+            # 계획대로 다 움직였는데...
+
+            # [핵심 추가] 아직 무기와의 높이 차이가 크다면(40px 이상)?
+            # -> "잘못된 경로였거나, 덜 올라왔다"고 판단하고 리셋!
+            if abs(self.me.y - weapon.y) > 40.0:
+                # print("[AI] 경로는 끝났는데 무기가 위에 있음. 재탐색!")
+                self._reset_scramble_plan()
+                return BehaviorTree.RUNNING
+
+            # 높이가 비슷하면 그냥 걸어가서 줍기
             dx = weapon.x - self.me.x
             self._set_move_dir(1 if dx > 0 else -1) if abs(dx) > 5.0 else self._set_move_dir(0)
             return BehaviorTree.RUNNING
 
+        # 5. 세그먼트 실행 (기존 로직 유지)
         seg = self.scramble_plan.segments[self.scramble_segment_index]
 
-        # [걷기]
         if seg.kind == 'walk':
             target_x = seg.target_x
             if abs(target_x - self.me.x) > 10.0:
@@ -432,38 +445,32 @@ class CharacterAI:
                 self._set_move_dir(0)
                 self.scramble_segment_index += 1
 
-        # [점프]
         elif seg.kind == 'jump':
             platforms = scramble_nav.build_platforms_from_stage(self.stage)
             cur_plat = scramble_nav.find_platform_under_point(platforms, self.me.x, self.me.y)
             dest_plat_name = seg.jump_template.to_platform
             dest_plat = platforms.get(dest_plat_name)
 
-            # --- [수정된 착지 확인 로직] ---
-            # 1) 이름이 일치하면 성공
+            # 착지 확인
             if cur_plat and cur_plat.name == dest_plat_name:
                 self.scramble_segment_index += 1
                 return BehaviorTree.RUNNING
 
-            # 2) [추가] 이름이 달라도, 바닥에 있고 높이가 목표와 비슷하면 성공으로 간주 (버그 방지)
-            # 조건: 공중이 아님 + 쿨타임 끝남 + 내 Y가 목표 바닥보다 높음
             if not self._is_in_air() and self.jump_end_time <= 0.0:
-                if dest_plat and self.me.y >= dest_plat.T - 10:  # 오차범위 10
-                    # print("[AI] 착지 판정 보정 성공!")
+                if dest_plat and self.me.y >= dest_plat.T - 10:
                     self.scramble_segment_index += 1
                     return BehaviorTree.RUNNING
 
-            # (2) 공중 제어 (Air Control)
+            # 공중 제어
             if self._is_in_air() or self.jump_end_time > 0:
-                # 높이 체크: 발바닥이 목표 위로 올라갔는가?
                 safe_margin = 60.0
                 if dest_plat and dest_plat.T + safe_margin > self.me.y:
-                    self._set_move_dir(0)  # 수직 상승
+                    self._set_move_dir(0)
                 else:
-                    self._set_move_dir(seg.dir)  # 목표 방향 진입
+                    self._set_move_dir(seg.dir)
                 return BehaviorTree.RUNNING
 
-            # (3) 점프 시도 (바닥)
+            # 점프 시도
             tx1, tx2 = seg.takeoff_range
             if tx1 <= self.me.x <= tx2:
                 self._set_move_dir(0)
