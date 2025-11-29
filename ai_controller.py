@@ -409,8 +409,8 @@ class CharacterAI:
         if self.scramble_plan is None:
             self.scramble_plan = scramble_nav.build_scramble_plan_to_point(
                 self.stage,
-                (self.me.x, self.me.y),
-                (weapon.x, weapon.y),
+                self.me.x, self.me.y,  # (self.me.x, self.me.y) -> self.me.x, self.me.y
+                weapon.x, weapon.y  # (weapon.x, weapon.y) -> weapon.x, weapon.y
             )
             self.scramble_segment_index = 0
 
