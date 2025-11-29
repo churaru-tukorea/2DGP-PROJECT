@@ -55,7 +55,6 @@ class CharacterAI:
                                          c_anyone_has_weapon,
                                          equipped_role_selector)
 
-        # --- Root ---
         root = Selector('Root',
                         weapon_equipped_phase,
                         default_move)
