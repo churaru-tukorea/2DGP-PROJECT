@@ -146,6 +146,12 @@ class CharacterAI:
         self.stage = stage_colliders
         self.weapon_getter = weapon_getter
 
+    def _reset_scramble_plan(self):
+        self.scramble_plan = None
+        self.scramble_segment_index = 0
+        # 방향도 정리해 주는 게 깔끔함
+        self._set_move_dir(0)
+
 
     # ------------------------------------------------------------------
     #  Condition 함수들(정신없어서 나눠야겠으)
@@ -170,6 +176,31 @@ class CharacterAI:
             return BehaviorTree.SUCCESS
         else:
             return BehaviorTree.FAIL
+
+    def cond_scramble_target_exists(self):
+
+        #둘 다 맨손이고, 스테이지 위에 'GROUND' 상태인 무기가 하나라도 있으면 True.
+
+        # 둘 중 하나라도 무기 들고 있으면 스크램블 아님
+        if self.me.weapon or self.enemy.weapon:
+            self._reset_scramble_plan()
+            return False
+
+        if self.stage is None or self.weapon_getter is None:
+            self._reset_scramble_plan()
+            return False
+
+        weapon = self.weapon_getter()
+        if weapon is None:
+            self._reset_scramble_plan()
+            return False
+
+        # Sword/Spear 둘 다 state 속성으로 상태 관리하니까 그걸 그대로 씀
+        if getattr(weapon, 'state', None) != 'GROUND':
+            self._reset_scramble_plan()
+            return False
+
+        return True
     # ------------------------------------------------------------------
     #  Action 함수들(정신없어서 나눠야겠으)
     # ------------------------------------------------------------------
