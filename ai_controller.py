@@ -9,7 +9,7 @@ from pico2d import (
 from sdl2 import SDLK_KP_2
 
 from behavior_tree import BehaviorTree, Selector, Action, Condition, Sequence
-
+import scramble_nav
 
 class CharacterAI:
     def __init__(self, me, enemy):
@@ -26,6 +26,11 @@ class CharacterAI:
         self.next_attack_time = get_time() + random.uniform(0.8, 1.5)
 
         self.jump_end_time = 0.0
+
+        self.stage = None                 # StageColliders
+        self.weapon_getter = None         # 현재 "줍으러 갈" 무기를 돌려주는 함수
+        self.scramble_plan = None         # scramble_nav.ScramblePlan
+        self.scramble_segment_index = 0   # 현재 몇 번째 segment 수행 중인지
 
         # [추가] 크로스오버(구석 탈출) 전용 타이머와 방향 저장
         self.crossover_end_time = 0.0
@@ -47,6 +52,9 @@ class CharacterAI:
         a_attack_simple = Action('공격 모드', self.act_simple_attack_mode)
         a_defend_simple = Action('도망 모드', self.act_simple_defense_mode)
 
+        c_scramble_target = Condition('주워야 할 무기 있음?', self.cond_scramble_target_exists)
+        a_scramble_to_weapon = Action('무기 줍기 스크램블', self.act_scramble_to_weapon)
+
         attacker_branch = Sequence('Equipped-Attacker',
                                    c_me_has_weapon,
                                    a_attack_simple)
@@ -63,8 +71,14 @@ class CharacterAI:
                                          c_anyone_has_weapon,
                                          equipped_role_selector)
 
+        scramble_phase = Sequence('둘 다 맨손이라 무기 줍기',
+                                  c_scramble_target,
+                                  a_scramble_to_weapon
+                                  )
+
         root = Selector('Root',
                         weapon_equipped_phase,
+                        scramble_phase,
                         default_move)
 
         self.bt = BehaviorTree(root)
@@ -122,6 +136,15 @@ class CharacterAI:
 
     def _is_in_air(self):
         return self.me.y > getattr(self.me, 'ground_y', 90) + 10
+
+    def set_scramble_context(self, stage_colliders, weapon_getter):
+        """
+        stage_colliders: StageColliders 인스턴스
+        weapon_getter: 호출하면 현재 '줍으러 갈' 무기(Sword/Spear)를 돌려주는 함수
+                       예) lambda: sword
+        """
+        self.stage = stage_colliders
+        self.weapon_getter = weapon_getter
 
 
     # ------------------------------------------------------------------
