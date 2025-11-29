@@ -65,8 +65,31 @@ class CharacterAI:
 
 
     def _tap_jump(self): # 짧게 점프 누르고 때는. 점프하는 키 눌렀다가 때는 정도면 될듯?
-        pass
+        self._send_key(SDLK_KP_1, True)
+        self._send_key(SDLK_KP_1, False)
+
     def act_wander_around_enemy(self):#너무 멀면 적 쪽으로 걸어가고 가까우면 멈추는 수준? 아직 지형지물 극복 방법은 안정했셔...
-        pass
+        enemy = self.enemy
+        me = self.me
+
+        if enemy is None or me is None:
+            # 적 정보가 없으면 그냥 FAIL 하자. 이게 한명이 죽었는데도 방방 뛰면 뭔가 통제안되는 느낌.
+            return BehaviorTree.FAIL
+
+        dx = enemy.x - me.x
+
+        stop_range = 60.0
+        if abs(dx) < stop_range:
+            # 적과 너무 붙었으면 멈추기
+            self._set_move_dir(0)
+            return BehaviorTree.SUCCESS
+
+        # 적이 오른쪽에 있으면 오른쪽, 왼쪽에 있으면 왼쪽으로 이동
+        if dx > 0:
+            self._set_move_dir(+1)
+        else:
+            self._set_move_dir(-1)
+
+        return BehaviorTree.SUCCESS
     def act_small_fidgets(self):#습관성 점프. ai가 디폴트라고 멀뚱멀뚱 왔다갔다만 하면 짜침;;
         pass
