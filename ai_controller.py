@@ -385,100 +385,110 @@ class CharacterAI:
         return BehaviorTree.SUCCESS
 
     def act_scramble_to_weapon(self):
-
-        #scramble_nav.ScramblePlan 을 따라가면서
-        #떨어져 있는 무기를 주우러 가는 액션.
-
-        # 1. 컨텍스트 유효성 체크
+        # 1. 컨텍스트 및 무기 상태 검증
         if self.stage is None or self.weapon_getter is None:
             return BehaviorTree.FAIL
-
         weapon = self.weapon_getter()
         if weapon is None:
             self._reset_scramble_plan()
             return BehaviorTree.FAIL
-
-        # 2. 이미 무기를 누군가 집었거나, 무기가 땅에 없으면 중단
         if self.me.weapon or self.enemy.weapon:
             self._reset_scramble_plan()
             return BehaviorTree.SUCCESS
-
         if getattr(weapon, 'state', None) != 'GROUND':
             self._reset_scramble_plan()
             return BehaviorTree.FAIL
 
+        # 2. 플랜 생성
         if self.scramble_plan is None:
             self.scramble_plan = scramble_nav.build_scramble_plan_to_point(
-                self.stage,
-                self.me.x, self.me.y,
-                weapon.x, weapon.y
+                self.stage, self.me.x, self.me.y, weapon.x, weapon.y
             )
             self.scramble_segment_index = 0
-
-            # 경로 생성 실패 시 fallback (단순 가로 이동)
             if self.scramble_plan is None or not self.scramble_plan.segments:
+                # Fallback: 단순 이동
                 dx = weapon.x - self.me.x
-                if abs(dx) > 3.0:
-                    self._set_move_dir(1 if dx > 0 else -1)
-                else:
-                    self._set_move_dir(0)
+                self._set_move_dir(1 if dx > 0 else -1) if abs(dx) > 3.0 else self._set_move_dir(0)
                 return BehaviorTree.RUNNING
 
-        # 현재 수행해야 할 세그먼트 정보를 가져옴
+        # 경로 리셋 조건 강화
         if self.scramble_segment_index < len(self.scramble_plan.segments):
             seg = self.scramble_plan.segments[self.scramble_segment_index]
+            platforms = scramble_nav.build_platforms_from_stage(self.stage)
+            target_plat_def = platforms.get(seg.platform)
 
-            # 나는 지금 땅에 붙어있는데,
-            if not self._is_in_air():
-                # 현재 내 발밑 플랫폼을 확인
-                platforms = scramble_nav.build_platforms_from_stage(self.stage)
-                cur_plat = scramble_nav.find_platform_under_point(platforms, self.me.x, self.me.y)
+            # 내 발밑이 목표보다 터무니없이 낮으면(추락) 그때만 리셋
+            if target_plat_def and self.me.y < target_plat_def.T - 80:  # 50 -> 80으로 여유 줌
+                # print(f"[AI] 추락 확인. 리셋.")
+                self._reset_scramble_plan()
+                return BehaviorTree.RUNNING
 
-                # 내가 있어야 할 플랫폼(seg.platform)이 아닌 엉뚱한 곳(예: 바닥)에 있다면?
-                # -> 점프 실패했거나 떨어졌다는 뜻. 계획 초기화!
-                if cur_plat is None or cur_plat.name != seg.platform:
-                    print(f"[AI] 경로 이탈 감지! Plan:{seg.platform} vs Real:{cur_plat.name if cur_plat else 'None'}")
-                    self._reset_scramble_plan()
-                    return BehaviorTree.RUNNING
-
-
-        # 세그먼트가 다 끝났으면(마지막 지점 도착) 미세 조정하며 줍기 대기
+        # 4. 세그먼트 실행
+        # 마지막 단계면 무기로 이동
         if self.scramble_segment_index >= len(self.scramble_plan.segments):
             dx = weapon.x - self.me.x
-            if abs(dx) > 5.0:
-                self._set_move_dir(1 if dx > 0 else -1)
-            else:
-                self._set_move_dir(0)
+            self._set_move_dir(1 if dx > 0 else -1) if abs(dx) > 5.0 else self._set_move_dir(0)
             return BehaviorTree.RUNNING
 
-        # 현재 세그먼트 실행
         seg = self.scramble_plan.segments[self.scramble_segment_index]
 
+        # 걷기 로직: 오차 범위(Margin)를 넓혀서 왔다갔다 방지
         if seg.kind == 'walk':
             target_x = seg.target_x
-            if abs(target_x - self.me.x) > 4.0:
+            # 5.0 픽셀 이내면 도착한 것으로 간주 (떨림 방지)
+            if abs(target_x - self.me.x) > 10.0:
                 self._set_move_dir(1 if target_x > self.me.x else -1)
             else:
-                # 도착했으면 다음 단계로
+                self._set_move_dir(0)  # 도착하면 멈춤
                 self.scramble_segment_index += 1
 
+        # 점프 로직: 확실히 멈춘 뒤 점프
         elif seg.kind == 'jump':
             tx1, tx2 = seg.takeoff_range
 
-            # 점프 발판 위치로 이동
-            if self.me.x < tx1 - 2.0:
-                self._set_move_dir(1)
-            elif self.me.x > tx2 + 2.0:
-                self._set_move_dir(-1)
-            else:
-                # 발판 범위 안 + 바닥에 있을 때 점프 시도
-                if not self._is_in_air() and self.jump_end_time <= 0.0:
-                    self._set_move_dir(seg.dir)
+            # 범위 안에 들어왔는지 체크
+            if tx1 <= self.me.x <= tx2:
+                # 범위 안이다!
 
-                    # 템플릿에 적힌 시간만큼 점프 키를 누른다!
-                    hold_time = seg.jump_template.hold_time if seg.jump_template else 0.3
+                # 1. 일단 멈춘다 (관성으로 미끄러져서 벽 박는거 방지)
+                self._set_move_dir(0)
+
+                # 2. 바닥에 있고 점프 쿨타임 끝났으면 점프
+                if not self._is_in_air() and self.jump_end_time <= 0.0:
+                    # 점프 방향 입력
+                    self._set_move_dir(seg.dir)
+                    hold_time = seg.jump_template.hold_time if seg.jump_template else 0.4
                     self._tap_jump(hold_time)
 
+                    # 3. 세그먼트 완료 처리 (점프 했으니까 넘어감)
                     self.scramble_segment_index += 1
 
+            else:
+                # 범위 밖이면 범위의 "중심"을 향해 이동
+                center_x = (tx1 + tx2) / 2
+                self._set_move_dir(1 if center_x > self.me.x else -1)
+
         return BehaviorTree.RUNNING
+
+
+    # 디버그 그리기
+
+    def draw(self):
+        from pico2d import draw_rectangle, draw_line
+
+        if not self.scramble_plan or not self.scramble_plan.segments:
+            return
+
+        # 현재 목표 세그먼트 표시
+        if self.scramble_segment_index < len(self.scramble_plan.segments):
+            seg = self.scramble_plan.segments[self.scramble_segment_index]
+
+            # 1. 내가 가려는 목표 X 위치 (초록색 선)
+            if seg.target_x:
+                draw_line(seg.target_x, self.me.y - 50, seg.target_x, self.me.y + 50, 0, 0, 0)
+
+            # 2. 점프 구간 표시 (붉은색 박스)
+            if seg.kind == 'jump' and seg.takeoff_range:
+                x1, x2 = seg.takeoff_range
+                y = self.me.y
+                draw_rectangle(x1, y - 10, x2, y + 10)

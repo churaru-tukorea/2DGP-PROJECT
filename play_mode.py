@@ -198,6 +198,12 @@ def update():
 def draw():
     clear_canvas()
     game_world.render()
+
+    # 추가된 부분: AI가 뭘 생각하는지 그리기
+    if cpu_ai:
+        cpu_ai.draw()
+
+
     update_canvas()
 
 def finish():
