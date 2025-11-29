@@ -385,10 +385,10 @@ class CharacterAI:
         return BehaviorTree.SUCCESS
 
     def act_scramble_to_weapon(self):
-        """
-        scramble_nav.ScramblePlan 을 따라가면서
-        떨어져 있는 무기를 주우러 가는 액션.
-        """
+
+        #scramble_nav.ScramblePlan 을 따라가면서
+        #떨어져 있는 무기를 주우러 가는 액션.
+
         # 1. 컨텍스트 유효성 체크
         if self.stage is None or self.weapon_getter is None:
             return BehaviorTree.FAIL
