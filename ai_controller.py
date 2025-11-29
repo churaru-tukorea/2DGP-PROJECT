@@ -27,6 +27,10 @@ class CharacterAI:
 
         self.jump_end_time = 0.0
 
+        # [추가] 크로스오버(구석 탈출) 전용 타이머와 방향 저장
+        self.crossover_end_time = 0.0
+        self.crossover_move_dir = 0
+
         self._build_bt()
 
     def _build_bt(self):
@@ -154,6 +158,9 @@ class CharacterAI:
         if enemy is None or me is None:
             return BehaviorTree.FAIL
 
+        if self._is_in_air():
+            return BehaviorTree.SUCCESS
+
         dx = enemy.x - me.x
         dist = abs(dx)
 
@@ -254,47 +261,64 @@ class CharacterAI:
         if enemy is None or me is None:
             return BehaviorTree.FAIL
 
+        now = get_time()
+
+        # 크로스오버(구석 탈출) 실행 중인지 확인 (Commitment)
+        if now < self.crossover_end_time:
+            # 설정된 시간 동안은 무조건 저장된 방향으로 밀고 나간다. (판단 금지)
+            self._set_move_dir(self.crossover_move_dir)
+
+            # 만약 도중에 바닥에 닿았는데 아직도 적과 겹쳐 있다면 점프 한번 더 시도
+            if not self._is_in_air() and abs(enemy.x - me.x) < 30.0:
+                self._tap_jump()
+
+            return BehaviorTree.SUCCESS
+
+        # [2] 상황 판단 로직 시작
         dx = enemy.x - me.x
         dist = abs(dx)
 
         canvas_w = get_canvas_width()
         margin = 100.0
 
+        # 도망 방향 (적 반대)
         escape_dir = -1 if dx > 0 else +1
 
+        # 구석 체크
         is_cornered = False
         if escape_dir == -1 and me.x < margin:
             is_cornered = True
         elif escape_dir == +1 and me.x > canvas_w - margin:
             is_cornered = True
 
-        # 도망 떨림 방지
-        flee_start_dist = 250.0  # 적이 250 안으로 들어오면 도망 시작
-        flee_end_dist = 350.0  # 350만큼 벌어지면 멈춤 (충분히 도망)
-
         crossover_range = 250.0
+
+        # [3] 구석 탈출 결심 (Trigger)
+        if is_cornered and dist < crossover_range:
+            # "지금부터 1.0초 동안은 무조건 적 방향으로 뚫고 나간다"고 서약
+            self.crossover_end_time = now + 1.0
+            self.crossover_move_dir = -escape_dir  # 적 방향(뚫고 나갈 방향) 저장
+
+            # 초기 동작 실행
+            self._tap_jump()
+            self._set_move_dir(self.crossover_move_dir)
+
+            return BehaviorTree.SUCCESS
+
+        # [4] 일반 도망 (Air Lock 포함)
+        if self._is_in_air():
+            return BehaviorTree.SUCCESS
+
+        flee_start_dist = 250.0
+        flee_end_dist = 350.0
 
         is_moving = (self.me.move_dir != 0)
         should_flee = False
 
-        if is_cornered:
-            # 구석 로직은 위급하므로 즉시 반응=
-            if dist < crossover_range:
-                self._set_move_dir(-escape_dir)
-                if not self._is_in_air():
-                    self._tap_jump()
-                return BehaviorTree.SUCCESS
-            else:
-                self._set_move_dir(0)
-                return BehaviorTree.SUCCESS
-
-        # 일반 도망 로직 (Dead Zone)
         if is_moving:
-            if dist < flee_end_dist:  # 350까지 벌어질 때까지 계속 도망
-                should_flee = True
+            if dist < flee_end_dist: should_flee = True
         else:
-            if dist < flee_start_dist:  # 250 안으로 들어오면 도망 시작
-                should_flee = True
+            if dist < flee_start_dist: should_flee = True
 
         if should_flee:
             self._set_move_dir(escape_dir)
