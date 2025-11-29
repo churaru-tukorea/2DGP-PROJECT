@@ -138,7 +138,27 @@ class CharacterAI:
         self._send_key(SDLK_KP_2, False)
 
     def _is_in_air(self):
-        return self.me.y > getattr(self.me, 'ground_y', 90) + 10
+        # 1. 맨바닥 체크
+        if self.me.y <= getattr(self.me, 'ground_y', 90) + 10:
+            return False
+
+        # 2. 플랫폼 정밀 검사
+        if self.stage:
+            import scramble_nav
+            platforms = scramble_nav.build_platforms_from_stage(self.stage)
+
+            for name, p in platforms.items():
+                #  X축 여유를 30 -> 60으로 대폭 증가
+                # 캐릭터가 플랫폼 끝에 매달려 있어도 '땅'이라고 인정해줌
+                if p.L - 60 <= self.me.x <= p.R + 60:
+
+                    # Y축 검사 (높이 차이 60 이내)
+                    diff = abs(self.me.y - p.T)
+
+                    if diff < 60.0:
+                        return False
+
+        return True
 
     def set_scramble_context(self, stage_colliders, weapon_getter):
         """
