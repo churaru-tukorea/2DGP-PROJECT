@@ -118,13 +118,23 @@ class CharacterAI:
     def cond_anyone_has_weapon(self): # 나 또는 적이 무기를 들고 있으면 True.
         me_has = getattr(self.me, 'weapon', None) is not None
         enemy_has = (self.enemy is not None) and (getattr(self.enemy, 'weapon', None) is not None)
-        return me_has or enemy_has
+        if me_has or enemy_has:
+            return BehaviorTree.SUCCESS
+        else:
+            return BehaviorTree.FAIL
 
     def cond_me_has_weapon(self): #내가 들고있는지
-        return getattr(self.me, 'weapon', None) is not None
+        if getattr(self.me, 'weapon', None) is not None:
+            return BehaviorTree.SUCCESS
+        else:
+            return BehaviorTree.FAIL
 
     def cond_enemy_has_weapon(self): #적이 들고있는지
-        return (self.enemy is not None) and (getattr(self.enemy, 'weapon', None) is not None)
+        has_weapon = (self.enemy is not None) and (getattr(self.enemy, 'weapon', None) is not None)
+        if has_weapon:
+            return BehaviorTree.SUCCESS
+        else:
+            return BehaviorTree.FAIL
     # ------------------------------------------------------------------
     #  Action 함수들(정신없어서 나눠야겠으)
     # ------------------------------------------------------------------
