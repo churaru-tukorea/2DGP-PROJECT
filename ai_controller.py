@@ -488,66 +488,72 @@ class CharacterAI:
 
             return BehaviorTree.RUNNING
 
-        # [B] 점프 (Jump)
+            # [B] 점프 (Jump)
         elif seg.kind == 'jump':
             # ---------------------------------------------------
-            # 1. [우선순위 1등] 착지 성공 확인 (Landing Check)
-            #    땅에 붙어있고 + 목표 플랫폼 높이랑 비슷하면 끝!
+            # 0. 목표 정보 확보
             # ---------------------------------------------------
-
-            # 목표 플랫폼 정보 가져오기
             dest_plat_name = seg.jump_template.to_platform
             platforms = scramble_nav.build_platforms_from_stage(self.stage)
             dest_plat = platforms.get(dest_plat_name)
 
-            # (중요) 땅에 있고, 목표 플랫폼 높이(T)와 내 발(y) 차이가 작으면 도착으로 인정
+            # [디버그] 목표 플랫폼을 못 찾으면 로그 띄움 (이게 None이면 바로 옆으로 새버림)
+            if not dest_plat:
+                print(f"[ERROR] Cannot find platform: {dest_plat_name}")
+
+            # 목표 높이 설정 (플랫폼이 있으면 그 높이, 없으면 그냥 내 머리 위 100)
+            target_height = dest_plat.T if dest_plat else (self.me.y + 100.0)
+
+            # ---------------------------------------------------
+            # 1. 착지 성공 확인 (Landing Check)
+            # ---------------------------------------------------
             if not self._is_in_air() and dest_plat:
-                if abs(self.me.y - dest_plat.T) < 30.0:
-                    # 착지 성공! 점프 키 떼고 다음 단계로
+                if abs(self.me.y - dest_plat.T) < 40.0:
                     self.jump_end_time = 0.0
                     self._send_key(SDLK_KP_1, False)
-                    self._set_move_dir(0)  # 미끄러짐 방지
-
-                    self.scramble_segment_index += 1  # 인덱스 증가
+                    self._set_move_dir(0)
+                    self.scramble_segment_index += 1
                     return BehaviorTree.RUNNING
 
             # ---------------------------------------------------
-            # 2. 공중 제어 (Air Control)
-            #    공중에 있거나, 아직 점프 키를 누르고 있어야 하는 시간이라면
+            # 2. 공중 제어 (Air Control) - [수정됨: 강제 상승 모드]
             # ---------------------------------------------------
             if self._is_in_air() or (self.jump_end_time > 0 and get_time() < self.jump_end_time):
-                # 안전 높이 확보 로직 (머리 박기 방지 등)
-                safe_height = dest_plat.T + 60 if dest_plat else -9999
 
-                # 아직 높이가 모자라면 방향키 끄고 수직 상승만 (선택 사항)
-                if self.me.y < safe_height:
-                    self._set_move_dir(0)  # 혹은 seg.dir 유지해도 됨 (맵에 따라 다름)
+                # [핵심 로직] 아직 목표 높이보다 낮다면?
+                if self.me.y < target_height + 10.0:  # 여유있게 +10
+                    # A. 수직 상승 (좌우 이동 금지)
+                    self._set_move_dir(0)
+
+                    # B. 점프 키 강제 유지 (Gravity 극복)
+                    # hold_time에 의존하지 않고, 높이가 될 때까지 계속 누름
+                    self._send_key(SDLK_KP_1, True)
+                    self.jump_end_time = get_time() + 0.1  # 타이머 계속 연장
+
                 else:
+                    # [성공] 높이 확보됨! 이제 옆으로 진입
                     self._set_move_dir(seg.dir)
 
                 return BehaviorTree.RUNNING
 
             # ---------------------------------------------------
             # 3. 점프 시도 (Takeoff)
-            #    땅에 있고, 아직 점프 안 했으면 -> 발사대로 이동
             # ---------------------------------------------------
             tx1, tx2 = seg.takeoff_range
 
-            # 발사대 범위 안에 있는가?
             if tx1 <= self.me.x <= tx2:
-                # 범위 안이다 -> 멈추고 점프!
+                # 제자리 점프 시작
                 self._set_move_dir(0)
 
-                # 점프 쿨타임/입력 시간이 끝난 상태여야 점프 시도
-                if self.jump_end_time <= 0.0:  # 혹은 get_time() 체크
-                    hold_time = seg.jump_template.hold_time if seg.jump_template else 0.4
-                    self._tap_jump(hold_time)
-                    # 점프와 동시에 방향키 입력 (중요)
-                    self._set_move_dir(seg.dir)
+                # 일단 점프 시작 (시간은 넉넉하게 줌, 어차피 위에서 제어함)
+                self._tap_jump(0.5)
+
             else:
-                # 범위 밖이다 -> 발사대 중앙으로 걸어가라
-                center_x = (tx1 + tx2) / 2
-                self._set_move_dir(1 if center_x > self.me.x else -1)
+                # 발사대 이동
+                if self.me.x < tx1:
+                    self._set_move_dir(1)
+                elif self.me.x > tx2:
+                    self._set_move_dir(-1)
 
         return BehaviorTree.RUNNING
 
