@@ -38,7 +38,32 @@ class CharacterAI:
         self.me.handle_event(event)
 
     def _set_move_dir(self, dir_x: int):    #현재 이동방향이 어딘지 계속 세팅하는.
-        pass
+        if dir_x < 0:
+            # 왼쪽 누르고, 오른쪽은 떼기
+            if not self.left_down:
+                self._send_key(SDLK_LEFT, True)
+                self.left_down = True
+            if self.right_down:
+                self._send_key(SDLK_RIGHT, False)
+                self.right_down = False
+        elif dir_x > 0:
+            # 오른쪽 누르고, 왼쪽은 떼기
+            if not self.right_down:
+                self._send_key(SDLK_RIGHT, True)
+                self.right_down = True
+            if self.left_down:
+                self._send_key(SDLK_LEFT, False)
+                self.left_down = False
+        else:
+            # 둘 다 떼기
+            if self.left_down:
+                self._send_key(SDLK_LEFT, False)
+                self.left_down = False
+            if self.right_down:
+                self._send_key(SDLK_RIGHT, False)
+                self.right_down = False
+
+
     def _tap_jump(self): # 짧게 점프 누르고 때는. 점프하는 키 눌렀다가 때는 정도면 될듯?
         pass
     def act_wander_around_enemy(self):#너무 멀면 적 쪽으로 걸어가고 가까우면 멈추는 수준? 아직 지형지물 극복 방법은 안정했셔...
