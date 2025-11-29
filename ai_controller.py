@@ -385,21 +385,17 @@ class CharacterAI:
         return BehaviorTree.SUCCESS
 
     def act_scramble_to_weapon(self):
-        # 1. 기본 검증 (기존 동일)
-        if self.stage is None or self.weapon_getter is None:
-            return BehaviorTree.FAIL
+        # 1. 검증 (동일)
+        if self.stage is None or self.weapon_getter is None: return BehaviorTree.FAIL
         weapon = self.weapon_getter()
-        if weapon is None:
+        if weapon is None or self.me.weapon or self.enemy.weapon:
             self._reset_scramble_plan()
-            return BehaviorTree.FAIL
-        if self.me.weapon or self.enemy.weapon:
-            self._reset_scramble_plan()
-            return BehaviorTree.SUCCESS
+            return (BehaviorTree.SUCCESS if (self.me.weapon or self.enemy.weapon) else BehaviorTree.FAIL)
         if getattr(weapon, 'state', None) != 'GROUND':
             self._reset_scramble_plan()
             return BehaviorTree.FAIL
 
-        # 2. 플랜 생성 (기존 동일)
+        # 2. 플랜 생성 (동일)
         if self.scramble_plan is None:
             self.scramble_plan = scramble_nav.build_scramble_plan_to_point(
                 self.stage, self.me.x, self.me.y, weapon.x, weapon.y
@@ -410,7 +406,7 @@ class CharacterAI:
                 self._set_move_dir(1 if dx > 0 else -1) if abs(dx) > 3.0 else self._set_move_dir(0)
                 return BehaviorTree.RUNNING
 
-        # 3. 추락 감지 (기존 동일)
+        # 3. 추락 감지 (동일)
         if self.scramble_segment_index < len(self.scramble_plan.segments):
             seg = self.scramble_plan.segments[self.scramble_segment_index]
             platforms = scramble_nav.build_platforms_from_stage(self.stage)
@@ -441,31 +437,30 @@ class CharacterAI:
             platforms = scramble_nav.build_platforms_from_stage(self.stage)
             cur_plat = scramble_nav.find_platform_under_point(platforms, self.me.x, self.me.y)
             dest_plat_name = seg.jump_template.to_platform
+            dest_plat = platforms.get(dest_plat_name)
 
-            # (1) 착지 확인: 목표 플랫폼 위에 도착했으면 다음으로
+            # --- [수정된 착지 확인 로직] ---
+            # 1) 이름이 일치하면 성공
             if cur_plat and cur_plat.name == dest_plat_name:
                 self.scramble_segment_index += 1
                 return BehaviorTree.RUNNING
 
+            # 2) [추가] 이름이 달라도, 바닥에 있고 높이가 목표와 비슷하면 성공으로 간주 (버그 방지)
+            # 조건: 공중이 아님 + 쿨타임 끝남 + 내 Y가 목표 바닥보다 높음
+            if not self._is_in_air() and self.jump_end_time <= 0.0:
+                if dest_plat and self.me.y >= dest_plat.T - 10:  # 오차범위 10
+                    # print("[AI] 착지 판정 보정 성공!")
+                    self.scramble_segment_index += 1
+                    return BehaviorTree.RUNNING
+
             # (2) 공중 제어 (Air Control)
             if self._is_in_air() or self.jump_end_time > 0:
-                dest_plat = platforms.get(dest_plat_name)
-
-                # [수정된 핵심 로직]
-                # 캐릭터 중심(y) - 40 = 발바닥 위치.
-                # "발바닥"이 "목표 플랫폼(Top) + 20px" 보다 높아질 때까지는 수직 상승만 한다.
-                # 식: (self.me.y - 40) < (dest_plat.T + 20)
-                # 정리하면: self.me.y < dest_plat.T + 60
-
-                safe_margin = 60.0  # 발 높이(40) + 여유분(20)
-
+                # 높이 체크: 발바닥이 목표 위로 올라갔는가?
+                safe_margin = 60.0
                 if dest_plat and dest_plat.T + safe_margin > self.me.y:
-                    # 아직 높이가 부족함 -> 수직 상승 (옆으로 가면 박음)
-                    self._set_move_dir(0)
+                    self._set_move_dir(0)  # 수직 상승
                 else:
-                    # 충분히 높이 올라옴 -> 이제 목표 방향으로 진입!
-                    self._set_move_dir(seg.dir)
-
+                    self._set_move_dir(seg.dir)  # 목표 방향 진입
                 return BehaviorTree.RUNNING
 
             # (3) 점프 시도 (바닥)
@@ -473,7 +468,7 @@ class CharacterAI:
             if tx1 <= self.me.x <= tx2:
                 self._set_move_dir(0)
                 if self.jump_end_time <= 0.0:
-                    self._set_move_dir(0)  # 일단 수직으로 솟구침
+                    self._set_move_dir(0)
                     hold_time = seg.jump_template.hold_time if seg.jump_template else 0.4
                     self._tap_jump(hold_time)
             else:
