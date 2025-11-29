@@ -2,6 +2,7 @@ from types import SimpleNamespace
 import random
 
 from pico2d import SDL_KEYDOWN, SDL_KEYUP, SDLK_LEFT, SDLK_RIGHT, SDLK_KP_1, get_time
+from sdl2 import SDLK_KP_2
 
 from behavior_tree import BehaviorTree, Selector, Action, Condition, Sequence
 
@@ -107,6 +108,10 @@ class CharacterAI:
         self._send_key(SDLK_KP_1, True)
         # 0.2초 동안 누르고 있도록 설정
         self.jump_end_time = get_time() + 0.2
+    def _tap_attack(self):
+        self._send_key(SDLK_KP_2, True)
+        self._send_key(SDLK_KP_2, False)
+
 
     # ------------------------------------------------------------------
     #  Condition 함수들(정신없어서 나눠야겠으)
@@ -195,5 +200,34 @@ class CharacterAI:
         return BehaviorTree.SUCCESS
 
     def act_simple_defense_mode(self): # 이것도 다순한겨 글서
-        pass
+
+        #적이 무기를 들고 있고, 나는 맨몸일 때:
+        #너무 가까우면 반대 방향으로 도망
+        #어느 정도 거리가 벌어지면 멈춤
+        #(나중에는 여기서 패링/점프 회피 등으로 바뀔 예정. 이것도 아직 이렇게만 하는건 사실...)
+
+        enemy = self.enemy
+        me = self.me
+
+        if enemy is None or me is None:
+            return BehaviorTree.FAIL
+
+        dx = enemy.x - me.x
+        dist = abs(dx)
+
+        safe_range = 200.0
+
+        if dist < safe_range:
+            # 적이 가까우면 반대 방향으로 도망
+            if dx > 0:
+                # 적이 오른쪽에서 왼쪽으로 도망
+                self._set_move_dir(-1)
+            else:
+                # 적이 왼쪽에서 오른쪽으로 도망
+                self._set_move_dir(+1)
+        else:
+            # 충분히 멀면 멈추기
+            self._set_move_dir(0)
+
+        return BehaviorTree.SUCCESS
 
