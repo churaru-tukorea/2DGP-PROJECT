@@ -1,7 +1,11 @@
 from types import SimpleNamespace
 import random
 
-from pico2d import SDL_KEYDOWN, SDL_KEYUP, SDLK_LEFT, SDLK_RIGHT, SDLK_KP_1, get_time
+from pico2d import (
+    SDL_KEYDOWN, SDL_KEYUP,
+    SDLK_LEFT, SDLK_RIGHT, SDLK_KP_1, SDLK_KP_2,
+    get_time, get_canvas_width # <--- 추가
+)
 from sdl2 import SDLK_KP_2
 
 from behavior_tree import BehaviorTree, Selector, Action, Condition, Sequence
@@ -101,15 +105,19 @@ class CharacterAI:
                 self._send_key(SDLK_RIGHT, False)
                 self.right_down = False
 
+    def _tap_jump(self):
+        # 이미 공중에 있거나, 점프 키를 누르는 중이면 또 누르지 않음
+        if self._is_in_air() or self.jump_end_time > 0:
+            return
 
-    def _tap_jump(self): # 짧게 점프 누르고 때는. 점프하는 키 눌렀다가 때는 정도면 될듯?
-        # 누르기만 하고, 떼는 건 나중에 함
         self._send_key(SDLK_KP_1, True)
-        # 0.2초 동안 누르고 있도록 설정
         self.jump_end_time = get_time() + 0.2
     def _tap_attack(self):
         self._send_key(SDLK_KP_2, True)
         self._send_key(SDLK_KP_2, False)
+
+    def _is_in_air(self):
+        return self.me.y > getattr(self.me, 'ground_y', 90) + 10
 
 
     # ------------------------------------------------------------------
@@ -224,19 +232,45 @@ class CharacterAI:
         dx = enemy.x - me.x
         dist = abs(dx)
 
-        safe_range = 200.0
+        canvas_w = get_canvas_width()
+        margin = 100.0
+
+        # 1. 기본 도망 방향 (적 반대)
+        escape_dir = 0
+        if dx > 0:
+            escape_dir = -1
+        else:
+            escape_dir = +1
+
+        # 2. 구석 체크
+        is_cornered = False
+        if escape_dir == -1 and me.x < margin:
+            is_cornered = True
+        elif escape_dir == +1 and me.x > canvas_w - margin:
+            is_cornered = True
+
+        # 3. 행동 결정
+        safe_range = 300.0
+        crossover_range = 250.0
 
         if dist < safe_range:
-            # 적이 가까우면 반대 방향으로 도망
-            if dx > 0:
-                # 적이 오른쪽에서 왼쪽으로 도망
-                self._set_move_dir(-1)
+            if is_cornered:
+                # [구석에 몰림]
+                if dist < crossover_range:
+                    # [수정] 무조건 적 방향으로 이동 키 유지 (공중에서도 이동해야 하므로)
+                    self._set_move_dir(-escape_dir)
+
+                    # [수정] 바닥에 있을 때만 점프 시도 (_tap_jump 내부에서 체크하지만 명시적으로)
+                    if not self._is_in_air():
+                        self._tap_jump()
+                else:
+                    # 적이 아직 멀면 제자리 대기
+                    self._set_move_dir(0)
             else:
-                # 적이 왼쪽에서 오른쪽으로 도망
-                self._set_move_dir(+1)
+                # [구석 아님] 그냥 도망
+                self._set_move_dir(escape_dir)
         else:
-            # 충분히 멀면 멈추기
+            # [안전]
             self._set_move_dir(0)
 
         return BehaviorTree.SUCCESS
-
