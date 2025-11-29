@@ -377,20 +377,47 @@ def build_scramble_plan_to_point(
         if best_jt is None: return None
 
         tko_range, lnd_range = _make_ranges(best_jt, platforms)
-        tko_center = (tko_range[0] + tko_range[1]) * 0.5
+
+        # ==========================================================
+        # [수정] 발사대(takeoff) 좌표가 플랫폼 밖으로 나가지 않게 '꽉' 잡기(Clamp)
+        # ==========================================================
         curr_plat_def = platforms[curr_name]
 
+        # 1. 튜플을 리스트로 풀어서 수정 가능하게 만듦
+        tx1, tx2 = tko_range
+
+        # 2. 플랫폼 왼쪽/오른쪽 끝에서 20픽셀 정도 안쪽으로 강제 이동
+        safe_margin = 20.0
+        safe_min = curr_plat_def.L + safe_margin
+        safe_max = curr_plat_def.R - safe_margin
+
+        # 3. 범위 자체가 안전 구역 안에 들어오도록 보정
+        tx1 = max(safe_min, min(safe_max, tx1))
+        tx2 = max(safe_min, min(safe_max, tx2))
+
+        # (혹시 범위가 뒤집혔으면 중앙값으로 통일)
+        if tx1 > tx2:
+            tx1 = tx2 = (tx1 + tx2) / 2
+
+        tko_range = (tx1, tx2)  # 다시 튜플로 포장
+        # ==========================================================
+
+        tko_center = (tko_range[0] + tko_range[1]) * 0.5
+
+        # Walk 세그먼트 추가
         segments.append(ScrambleSegment(
             kind="walk",
             platform=curr_name,
-            target_x=curr_plat_def.clamp_x(tko_center)
+            # 걷기 목표도 안전하게 clamp된 tko_center를 사용
+            target_x=tko_center
         ))
 
+        # Jump 세그먼트 추가
         segments.append(ScrambleSegment(
             kind="jump",
             platform=curr_name,
             jump_template=best_jt,
-            takeoff_range=tko_range,
+            takeoff_range=tko_range,  # 보정된 범위 사용
             landing_range=lnd_range,
             dir=best_jt.dir
         ))
@@ -404,5 +431,16 @@ def build_scramble_plan_to_point(
         platform=last_plat.name,
         target_x=last_plat.clamp_x(target_x)
     ))
+
+    print(f"\n[NAV-GEN] Start: {start_plat.name} -> Target: {target_plat.name}")
+    if segments:
+        for i, s in enumerate(segments):
+            if s.kind == 'walk':
+                print(f"  [{i}] WALK on {s.platform} -> Go to X={s.target_x:.1f}")
+            elif s.kind == 'jump':
+                print(f"  [{i}] JUMP from {s.platform} -> {s.jump_template.to_platform}")
+                print(f"       Takeoff Range: {s.takeoff_range}")
+    else:
+        print("  [NAV-GEN] FAILED: Segments list is empty!")
 
     return ScramblePlan(segments, start_plat.name, target_plat.name)
