@@ -18,18 +18,24 @@ class CharacterAI:
         # 점프 쿨타임용, 디폴트일땐 적당히 이정도 기다려라...
         self.next_fidget_time = get_time() + random.uniform(1.0, 3.0)
 
+        self.jump_end_time = 0.0
+
         self._build_bt()
 
     def _build_bt(self):
         a_wander = Action('기본적인 배회', self.act_wander_around_enemy)
         a_fidget = Action('가끔 점프나잔동', self.act_small_fidgets)
 
-        root = default_move = Selector('DefaultMovement', a_wander, a_fidget)
+        root = default_move = Selector('DefaultMovement', a_fidget, a_wander)
 
 
         self.bt = BehaviorTree(root)
     def update(self):
         self.bt.run()
+
+        if self.jump_end_time > 0 and get_time() >= self.jump_end_time:
+            self._send_key(SDLK_KP_1, False)  # 키 떼기
+            self.jump_end_time = 0.0  # 리셋
 
     def _send_key(self, sdl_key, is_down: bool): # 특정 키를 입력한다는 헬퍼를 보내버리는
         event_type = SDL_KEYDOWN if is_down else SDL_KEYUP
@@ -65,8 +71,10 @@ class CharacterAI:
 
 
     def _tap_jump(self): # 짧게 점프 누르고 때는. 점프하는 키 눌렀다가 때는 정도면 될듯?
+        # 누르기만 하고, 떼는 건 나중에 함
         self._send_key(SDLK_KP_1, True)
-        self._send_key(SDLK_KP_1, False)
+        # 0.2초 동안 누르고 있도록 설정
+        self.jump_end_time = get_time() + 0.2
 
     def act_wander_around_enemy(self):#너무 멀면 적 쪽으로 걸어가고 가까우면 멈추는 수준? 아직 지형지물 극복 방법은 안정했셔...
         enemy = self.enemy

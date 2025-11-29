@@ -11,6 +11,7 @@ from items import SpeedClockItem, AttackClockItem
 import game_framework
 import config
 from spear import Spear
+from ai_controller import CharacterAI
 
 
 running = True
@@ -24,6 +25,7 @@ item_spawn_interval = None
 p1 = None
 p2 = None
 sword = None
+cpu_ai = None   # ← AI 컨트롤러 전역
 
 
 def handle_events():
@@ -45,7 +47,8 @@ def handle_events():
 
         else:
             p1.handle_event(event)
-            p2.handle_event(event)
+            if cpu_ai is None:
+                p2.handle_event(event)
 
 
 
@@ -54,6 +57,7 @@ def handle_events():
 def init():
     global p1, p2, running, sword, stage_colliders
     global item_spawn_time, item_spawned, item_spawn_interval
+    global cpu_ai
 
     running = True
     item_spawned = False
@@ -63,6 +67,9 @@ def init():
     p1.x = 300
     p2 = Character(pid=2)
     p2.x = 900
+
+    # p2를 AI로 조종
+    cpu_ai = CharacterAI(p2, p1)
 
     # 배경
     background_layer = StaticImageLayer('background.png', fit='cover')
@@ -136,6 +143,9 @@ def update():
     global item_spawn_time, item_spawned, stage_colliders, item_spawn_interval
 
     now = get_time()
+
+    if cpu_ai is not None:
+        cpu_ai.update()
 
     # 아이템 스폰: 게임 시작 후 10초에 한 번, 아직 안 나왔을 때만
     if (not item_spawned) and item_spawn_time is not None and now >= item_spawn_time:
