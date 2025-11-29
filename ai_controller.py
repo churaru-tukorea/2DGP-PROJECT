@@ -385,7 +385,7 @@ class CharacterAI:
         return BehaviorTree.SUCCESS
 
     def act_scramble_to_weapon(self):
-        # 컨텍스트 및 무기 상태 검증
+        # 1. 기본 검증 (기존 동일)
         if self.stage is None or self.weapon_getter is None:
             return BehaviorTree.FAIL
         weapon = self.weapon_getter()
@@ -399,39 +399,35 @@ class CharacterAI:
             self._reset_scramble_plan()
             return BehaviorTree.FAIL
 
-        # 플랜 생성
+        # 2. 플랜 생성 (기존 동일)
         if self.scramble_plan is None:
             self.scramble_plan = scramble_nav.build_scramble_plan_to_point(
                 self.stage, self.me.x, self.me.y, weapon.x, weapon.y
             )
             self.scramble_segment_index = 0
             if self.scramble_plan is None or not self.scramble_plan.segments:
-                # Fallback: 단순 이동
                 dx = weapon.x - self.me.x
                 self._set_move_dir(1 if dx > 0 else -1) if abs(dx) > 3.0 else self._set_move_dir(0)
                 return BehaviorTree.RUNNING
 
-        # 경로 이탈(추락) 감지
+        # 3. 추락 감지 (기존 동일)
         if self.scramble_segment_index < len(self.scramble_plan.segments):
             seg = self.scramble_plan.segments[self.scramble_segment_index]
             platforms = scramble_nav.build_platforms_from_stage(self.stage)
             target_plat_def = platforms.get(seg.platform)
-
-            # 내 발밑이 목표보다 터무니없이 낮으면 리셋
             if target_plat_def and self.me.y < target_plat_def.T - 80:
                 self._reset_scramble_plan()
                 return BehaviorTree.RUNNING
 
-        # 세그먼트 실행
+        # 4. 세그먼트 실행
         if self.scramble_segment_index >= len(self.scramble_plan.segments):
-            # 도착 후 무기 줍기 미세 조정
             dx = weapon.x - self.me.x
             self._set_move_dir(1 if dx > 0 else -1) if abs(dx) > 5.0 else self._set_move_dir(0)
             return BehaviorTree.RUNNING
 
         seg = self.scramble_plan.segments[self.scramble_segment_index]
 
-        # 걷기 로직
+        # [걷기]
         if seg.kind == 'walk':
             target_x = seg.target_x
             if abs(target_x - self.me.x) > 10.0:
@@ -440,38 +436,47 @@ class CharacterAI:
                 self._set_move_dir(0)
                 self.scramble_segment_index += 1
 
-        # 점프 로직
+        # [점프]
         elif seg.kind == 'jump':
-            # 착지 확인: 내가 지금 목표 플랫폼 위에 있는가?
             platforms = scramble_nav.build_platforms_from_stage(self.stage)
             cur_plat = scramble_nav.find_platform_under_point(platforms, self.me.x, self.me.y)
             dest_plat_name = seg.jump_template.to_platform
 
-            # 목표 플랫폼에 도착했으면 다음 단계로 진행
+            # (1) 착지 확인: 목표 플랫폼 위에 도착했으면 다음으로
             if cur_plat and cur_plat.name == dest_plat_name:
                 self.scramble_segment_index += 1
                 return BehaviorTree.RUNNING
 
-            # 점프 진행 중: 공중에 있거나, 점프 키를 누르는 중이라면?
-            # -> 절대 걷기 로직으로 넘어가지 말고, '점프 방향'을 계속 유지
-            # jump_end_time > 0은 현재 키를 누르고 있다는 뜻 (0.0이 될 때까지 대기)
+            # (2) 공중 제어 (Air Control)
             if self._is_in_air() or self.jump_end_time > 0:
-                self._set_move_dir(seg.dir)
+                dest_plat = platforms.get(dest_plat_name)
+
+                # [수정된 핵심 로직]
+                # 캐릭터 중심(y) - 40 = 발바닥 위치.
+                # "발바닥"이 "목표 플랫폼(Top) + 20px" 보다 높아질 때까지는 수직 상승만 한다.
+                # 식: (self.me.y - 40) < (dest_plat.T + 20)
+                # 정리하면: self.me.y < dest_plat.T + 60
+
+                safe_margin = 60.0  # 발 높이(40) + 여유분(20)
+
+                if dest_plat and dest_plat.T + safe_margin > self.me.y:
+                    # 아직 높이가 부족함 -> 수직 상승 (옆으로 가면 박음)
+                    self._set_move_dir(0)
+                else:
+                    # 충분히 높이 올라옴 -> 이제 목표 방향으로 진입!
+                    self._set_move_dir(seg.dir)
+
                 return BehaviorTree.RUNNING
 
-            # 점프 시도: 아직 출발 플랫폼에 있다면
+            # (3) 점프 시도 (바닥)
             tx1, tx2 = seg.takeoff_range
-
             if tx1 <= self.me.x <= tx2:
-                # 범위 안: 멈춰서 점프 실행
                 self._set_move_dir(0)
-                if self.jump_end_time <= 0.0:  # 쿨타임/키누름 끝났을 때만
-                    self._set_move_dir(seg.dir)
+                if self.jump_end_time <= 0.0:
+                    self._set_move_dir(0)  # 일단 수직으로 솟구침
                     hold_time = seg.jump_template.hold_time if seg.jump_template else 0.4
                     self._tap_jump(hold_time)
-                    # 중요: 여기서 index += 1을 하지 않음! (착지할 때까지 대기)
             else:
-                # 범위 밖: 도움닫기 위치로 이동
                 center_x = (tx1 + tx2) / 2
                 self._set_move_dir(1 if center_x > self.me.x else -1)
 
