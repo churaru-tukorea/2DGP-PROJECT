@@ -3,7 +3,7 @@ import random
 
 from pico2d import SDL_KEYDOWN, SDL_KEYUP, SDLK_LEFT, SDLK_RIGHT, SDLK_KP_1, get_time
 
-from behavior_tree import BehaviorTree, Selector, Action
+from behavior_tree import BehaviorTree, Selector, Action, Condition, Sequence
 
 
 class CharacterAI:
@@ -17,6 +17,8 @@ class CharacterAI:
 
         # 점프 쿨타임용, 디폴트일땐 적당히 이정도 기다려라...
         self.next_fidget_time = get_time() + random.uniform(1.0, 3.0)
+        # 공격 쿨타임
+        self.next_attack_time = get_time() + random.uniform(0.8, 1.5)
 
         self.jump_end_time = 0.0
 
@@ -28,6 +30,36 @@ class CharacterAI:
 
         root = default_move = Selector('DefaultMovement', a_fidget, a_wander)
 
+        c_anyone_has_weapon = Condition('누군가 무기 들고 있음?', self.cond_anyone_has_weapon)
+        c_me_has_weapon = Condition('내가 무기 들고 있음?', self.cond_me_has_weapon)
+        c_enemy_has_weapon = Condition('적이 무기 들고 있음?', self.cond_enemy_has_weapon)
+
+        # --- 장비 상태에 따른 행동 ---
+        a_attack_simple = Action('공격 모드', self.act_simple_attack_mode)
+        a_defend_simple = Action('도망 모드', self.act_simple_defense_mode)
+
+        attacker_branch = Sequence('Equipped-Attacker',
+                                   c_me_has_weapon,
+                                   a_attack_simple)
+
+        defender_branch = Sequence('Equipped-Defender',
+                                   c_enemy_has_weapon,
+                                   a_defend_simple)
+
+        equipped_role_selector = Selector('EquippedRoleSelector',
+                                          attacker_branch,
+                                          defender_branch)
+
+        weapon_equipped_phase = Sequence('WeaponEquippedPhase',
+                                         c_anyone_has_weapon,
+                                         equipped_role_selector)
+
+        # --- Root ---
+        root = Selector('Root',
+                        weapon_equipped_phase,
+                        default_move)
+
+        self.bt = BehaviorTree(root)
 
         self.bt = BehaviorTree(root)
     def update(self):
