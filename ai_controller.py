@@ -92,4 +92,15 @@ class CharacterAI:
 
         return BehaviorTree.SUCCESS
     def act_small_fidgets(self):#습관성 점프. ai가 디폴트라고 멀뚱멀뚱 왔다갔다만 하면 짜침;;
-        pass
+        now = get_time()
+        if now < self.next_fidget_time:
+            # 아직 잔동 타이밍이 아니면 fail 때리고 다음 bt 차례에 wander로 가게
+            return BehaviorTree.FAIL
+
+        # 다음 잔동 시간 재설정
+        self.next_fidget_time = now + random.uniform(1.0, 3.0)
+
+        # 간단히 점프 한 번
+        self._tap_jump()
+
+        return BehaviorTree.SUCCESS
