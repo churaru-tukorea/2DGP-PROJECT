@@ -380,3 +380,89 @@ class CharacterAI:
             self._set_move_dir(0)
 
         return BehaviorTree.SUCCESS
+
+    def act_scramble_to_weapon(self):
+        """
+        scramble_nav.ScramblePlan 을 따라가면서
+        떨어져 있는 무기를 주우러 가는 액션.
+        """
+        # 컨텍스트가 준비 안 되어 있으면 실패 처리
+        if self.stage is None or self.weapon_getter is None:
+            return BehaviorTree.FAIL
+
+        weapon = self.weapon_getter()
+        if weapon is None:
+            self._reset_scramble_plan()
+            return BehaviorTree.FAIL
+
+        # 이미 누가 집어 들었으면 이 phase는 끝난 것
+        if self.me.weapon or self.enemy.weapon:
+            self._reset_scramble_plan()
+            return BehaviorTree.SUCCESS
+
+        # 무기가 GROUND 상태가 아니면(날아가거나 리셋 중이면) 스크램블 중단
+        if getattr(weapon, 'state', None) != 'GROUND':
+            self._reset_scramble_plan()
+            return BehaviorTree.FAIL
+
+        # 플랜이 없으면 새로 계산
+        if self.scramble_plan is None:
+            self.scramble_plan = scramble_nav.build_scramble_plan_to_point(
+                self.stage,
+                (self.me.x, self.me.y),
+                (weapon.x, weapon.y),
+            )
+            self.scramble_segment_index = 0
+
+        # 경로를 못 찾은 경우: 그냥 x방향으로만 달려가는 fallback
+        if self.scramble_plan is None or not self.scramble_plan.segments:
+            dx = weapon.x - self.me.x
+            if abs(dx) > 3.0:
+                self._set_move_dir(1 if dx > 0 else -1)
+            else:
+                self._set_move_dir(0)
+            return BehaviorTree.RUNNING
+
+        # 현재 수행 중인 세그먼트
+        if self.scramble_segment_index >= len(self.scramble_plan.segments):
+            # 세그먼트는 다 끝났는데 아직 못 집었으면,
+            # 마지막으로 무기 쪽으로 더 다가가 보면서 기다림
+            dx = weapon.x - self.me.x
+            if abs(dx) > 5.0:
+                self._set_move_dir(1 if dx > 0 else -1)
+            else:
+                self._set_move_dir(0)
+            # 실제 집는 건 캐릭터-무기 충돌 로직에서 처리하니까 RUNNING 유지
+            return BehaviorTree.RUNNING
+
+        seg = self.scramble_plan.segments[self.scramble_segment_index]
+
+        if seg.kind == 'walk':
+            target_x = seg.target_x
+
+            # target_x까지 좌우 이동
+            if abs(target_x - self.me.x) > 4.0:
+                self._set_move_dir(1 if target_x > self.me.x else -1)
+            else:
+                # 세그먼트 완료 -> 다음 세그먼트로
+                self.scramble_segment_index += 1
+
+        elif seg.kind == 'jump':
+            # takeoff_range 안으로 먼저 들어가고, 그 안에서 점프
+            tx1, tx2 = seg.takeoff_range
+
+            # 점프 지점까지 걷기
+            if self.me.x < tx1 - 2.0:
+                self._set_move_dir(1)
+            elif self.me.x > tx2 + 2.0:
+                self._set_move_dir(-1)
+            else:
+                # 점프 구간 안 + 바닥에 있을 때만 점프 발동
+                if not self._is_in_air() and self.jump_end_time <= 0.0:
+                    # 점프 방향 설정 (dir: -1 왼쪽, 0 수직, 1 오른쪽)
+                    self._set_move_dir(seg.dir)
+                    self._tap_jump()  # 기존 점프 로직 재사용 (hold_time은 내부 상수)
+                    self.scramble_segment_index += 1
+
+        # 아직 무기를 못 집었으니 계속 RUNNING
+        return BehaviorTree.RUNNING

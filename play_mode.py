@@ -100,6 +100,9 @@ def init():
         sword.bind_stage(stage_colliders) # 스테이지 연동 여기서 해버리기
         game_world.add_object(sword, 2)
 
+        # AI에 nav 컨텍스트 연결
+        cpu_ai.set_scramble_context(stage_colliders, lambda: sword)
+
         # 플레이어가 검을 줍는 충돌 그룹
         game_world.add_collision_pair('char:sword', p1, None)
         game_world.add_collision_pair('char:sword', p2, None)
@@ -115,6 +118,8 @@ def init():
         spear = Spear(2)
         spear.bind_stage(stage_colliders)
         game_world.add_object(spear, 2)
+
+        cpu_ai.set_scramble_context(stage_colliders, lambda: spear)
 
         game_world.add_collision_pair('char:spear', p1, None)
         game_world.add_collision_pair('char:spear', p2, None)
