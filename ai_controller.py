@@ -385,100 +385,136 @@ class CharacterAI:
         return BehaviorTree.SUCCESS
 
     def act_scramble_to_weapon(self):
-        # 1. 검증 (동일)
+        # -------------------------------------------------------
+        # 1. 기본 유효성 검사
+        # -------------------------------------------------------
         if self.stage is None or self.weapon_getter is None: return BehaviorTree.FAIL
         weapon = self.weapon_getter()
         if weapon is None or self.me.weapon or self.enemy.weapon:
             self._reset_scramble_plan()
-            return (BehaviorTree.SUCCESS if (self.me.weapon or self.enemy.weapon) else BehaviorTree.FAIL)
+            return BehaviorTree.SUCCESS
         if getattr(weapon, 'state', None) != 'GROUND':
             self._reset_scramble_plan()
             return BehaviorTree.FAIL
 
-        # 2. 플랜 생성 (동일)
+        # -------------------------------------------------------
+        # 2. 플랜 생성 (경로가 없으면 만듦)
+        # -------------------------------------------------------
         if self.scramble_plan is None:
             self.scramble_plan = scramble_nav.build_scramble_plan_to_point(
                 self.stage, self.me.x, self.me.y, weapon.x, weapon.y
             )
             self.scramble_segment_index = 0
+
+            # 경로 생성 실패 시 -> 단순 무식하게 무기 쪽으로 이동 (Fallback)
             if self.scramble_plan is None or not self.scramble_plan.segments:
-                print(
-                    f"[AI Warning] 경로 생성 실패! 내위치:({self.me.x:.1f}, {self.me.y:.1f}) -> 무기:({weapon.x:.1f}, {weapon.y:.1f})")
                 dx = weapon.x - self.me.x
-                self._set_move_dir(1 if dx > 0 else -1) if abs(dx) > 3.0 else self._set_move_dir(0)
+                if abs(dx) > 5.0:
+                    self._set_move_dir(1 if dx > 0 else -1)
+                else:
+                    self._set_move_dir(0)
                 return BehaviorTree.RUNNING
 
-        # 3. 추락 감지 (동일)
+        # -------------------------------------------------------
+        # 3. [New] 추락/경로 이탈 감지 (이름 체크 X, 오직 높이로만 판단)
+        # -------------------------------------------------------
         if self.scramble_segment_index < len(self.scramble_plan.segments):
             seg = self.scramble_plan.segments[self.scramble_segment_index]
+            # 현재 목표로 하는 세그먼트의 플랫폼 높이 구하기
             platforms = scramble_nav.build_platforms_from_stage(self.stage)
             target_plat_def = platforms.get(seg.platform)
-            # 80px 이상 아래로 떨어졌을 때만 리셋
-            if target_plat_def and self.me.y < target_plat_def.T - 80:
-                self._reset_scramble_plan()
-                return BehaviorTree.RUNNING
 
-        # 4. [수정됨] 세그먼트 완료 후 처리 (여기가 문제의 원인)
+            if target_plat_def:
+                # 내 발바닥이 목표 플랫폼 바닥보다 100px 이상 아래면 -> 추락한 것임.
+                if self.me.y < target_plat_def.T - 100:
+                    # print("[AI] 추락 감지(Height check). 경로 재설정.")
+                    self._reset_scramble_plan()
+                    return BehaviorTree.RUNNING
+
+        # -------------------------------------------------------
+        # 4. 계획 완료 후 처리
+        # -------------------------------------------------------
         if self.scramble_segment_index >= len(self.scramble_plan.segments):
-            # 계획대로 다 움직였는데...
-
-            # [핵심 추가] 아직 무기와의 높이 차이가 크다면(40px 이상)?
-            # -> "잘못된 경로였거나, 덜 올라왔다"고 판단하고 리셋!
+            # 경로 끝났는데 무기랑 높이 차이가 크다? -> 잘못 온 거임. 리셋.
             if abs(self.me.y - weapon.y) > 40.0:
-                # print("[AI] 경로는 끝났는데 무기가 위에 있음. 재탐색!")
                 self._reset_scramble_plan()
                 return BehaviorTree.RUNNING
 
-            # 높이가 비슷하면 그냥 걸어가서 줍기
+            # 높이 맞으면 가서 줍기
             dx = weapon.x - self.me.x
             self._set_move_dir(1 if dx > 0 else -1) if abs(dx) > 5.0 else self._set_move_dir(0)
             return BehaviorTree.RUNNING
 
-        # 5. 세그먼트 실행 (기존 로직 유지)
+        # -------------------------------------------------------
+        # 5. 세그먼트 실행 (핵심 로직 변경)
+        # -------------------------------------------------------
         seg = self.scramble_plan.segments[self.scramble_segment_index]
 
+        # [A] 걷기 (Walk)
         if seg.kind == 'walk':
             target_x = seg.target_x
-            if abs(target_x - self.me.x) > 10.0:
-                self._set_move_dir(1 if target_x > self.me.x else -1)
-            else:
+
+            # 도착 확인: X좌표가 근처인가? (이름 확인 안 함!)
+            if abs(target_x - self.me.x) <= 10.0:
                 self._set_move_dir(0)
                 self.scramble_segment_index += 1
+            else:
+                self._set_move_dir(1 if target_x > self.me.x else -1)
 
+        # [B] 점프 (Jump)
         elif seg.kind == 'jump':
-            platforms = scramble_nav.build_platforms_from_stage(self.stage)
-            cur_plat = scramble_nav.find_platform_under_point(platforms, self.me.x, self.me.y)
-            dest_plat_name = seg.jump_template.to_platform
-            dest_plat = platforms.get(dest_plat_name)
+            # ---------------------------------------------------
+            # [패러다임 전환] 착지 확인: 이름 확인 X -> 물리 상태 확인 O
+            # ---------------------------------------------------
 
-            # 착지 확인
-            if cur_plat and cur_plat.name == dest_plat_name:
-                self.scramble_segment_index += 1
-                return BehaviorTree.RUNNING
-
+            # 1. 바닥에 붙어 있는가? (Grounded)
+            # 2. 점프 쿨타임이 끝났는가? (Ready)
             if not self._is_in_air() and self.jump_end_time <= 0.0:
-                if dest_plat and self.me.y >= dest_plat.T - 10:
-                    self.scramble_segment_index += 1
-                    return BehaviorTree.RUNNING
 
-            # 공중 제어
+                # 목표 플랫폼 정보
+                dest_plat_name = seg.jump_template.to_platform
+                platforms = scramble_nav.build_platforms_from_stage(self.stage)
+                dest_plat = platforms.get(dest_plat_name)
+
+                if dest_plat:
+                    # 3. [핵심] 내 발 높이가 목표 플랫폼 높이와 얼추(±30) 비슷한가?
+                    # 이름이 틀려도 높이가 맞으면 도착한 것으로 인정해버림.
+                    if abs(self.me.y - dest_plat.T) < 30.0:
+                        # print(f"[AI] 착지 성공 판정 (By Physics). Next Step.")
+                        self.scramble_segment_index += 1
+                        return BehaviorTree.RUNNING
+
+            # ---------------------------------------------------
+            # 공중 제어 (Air Control) - 절대 멈추지 않음
+            # ---------------------------------------------------
             if self._is_in_air() or self.jump_end_time > 0:
-                safe_margin = 60.0
-                if dest_plat and dest_plat.T + safe_margin > self.me.y:
+                dest_plat_name = seg.jump_template.to_platform
+                platforms = scramble_nav.build_platforms_from_stage(self.stage)
+                dest_plat = platforms.get(dest_plat_name)
+
+                # 높이 확보 전엔 수직 상승
+                safe_height = dest_plat.T + 60 if dest_plat else -9999
+                if self.me.y < safe_height:
                     self._set_move_dir(0)
                 else:
                     self._set_move_dir(seg.dir)
                 return BehaviorTree.RUNNING
 
-            # 점프 시도
+            # ---------------------------------------------------
+            # 점프 시도 (Takeoff)
+            # ---------------------------------------------------
             tx1, tx2 = seg.takeoff_range
+
+            # 범위 안에 있는가?
             if tx1 <= self.me.x <= tx2:
                 self._set_move_dir(0)
+                # 쿨타임 끝났으면 점프 발사
                 if self.jump_end_time <= 0.0:
                     self._set_move_dir(0)
                     hold_time = seg.jump_template.hold_time if seg.jump_template else 0.4
                     self._tap_jump(hold_time)
             else:
+                # 범위 밖이면 이동
                 center_x = (tx1 + tx2) / 2
                 self._set_move_dir(1 if center_x > self.me.x else -1)
 
