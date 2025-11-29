@@ -152,22 +152,32 @@ class CharacterAI:
         me = self.me
 
         if enemy is None or me is None:
-            # 적 정보가 없으면 그냥 FAIL 하자. 이게 한명이 죽었는데도 방방 뛰면 뭔가 통제안되는 느낌.
             return BehaviorTree.FAIL
 
         dx = enemy.x - me.x
+        dist = abs(dx)
 
-        stop_range = 60.0
-        if abs(dx) < stop_range:
-            # 적과 너무 붙었으면 멈추기
-            self._set_move_dir(0)
-            return BehaviorTree.SUCCESS
+        # 떨림 방지: 접근 시작 거리와 정지 거리를 다르게 설정
+        start_chase_range = 100.0  # 이보다 멀어지면 접근 시작
+        stop_chase_range = 60.0  # 이보다 가까워지면 정지
 
-        # 적이 오른쪽에 있으면 오른쪽, 왼쪽에 있으면 왼쪽으로 이동
-        if dx > 0:
-            self._set_move_dir(+1)
+        # 현재 움직이고 있는지 확인 (관성 유지용)
+        is_moving = (self.me.move_dir != 0)
+
+        should_move = False
+        if is_moving:
+            # 이미 움직이는 중이라면, 목표지점(60)까지 확실히 도달할 때까지 멈추지 않음
+            if dist > stop_chase_range:
+                should_move = True
         else:
-            self._set_move_dir(-1)
+            # 멈춰있는 상태라면, 충분히 멀어졌을 때(100) 비로소 움직임 시작
+            if dist > start_chase_range:
+                should_move = True
+
+        if should_move:
+            self._set_move_dir(+1 if dx > 0 else -1)
+        else:
+            self._set_move_dir(0)
 
         return BehaviorTree.SUCCESS
     def act_small_fidgets(self):#습관성 점프. ai가 디폴트라고 멀뚱멀뚱 왔다갔다만 하면 짜침;;
@@ -189,7 +199,7 @@ class CharacterAI:
         #적과의 거리가 멀면 → 다가간다.
         #적과의 거리가 어느 정도면 → 가끔 공격 키를 누른다.
         #(아직 패링, 타이머, 아이템, 각 싸움 전부 무시. 정확히는 구체적으로 어떻게 할지 아직 모르겠음...)
-        
+
         enemy = self.enemy
         me = self.me
 
@@ -199,20 +209,35 @@ class CharacterAI:
         dx = enemy.x - me.x
         dist = abs(dx)
 
-        # 1) 거리 조절
-        desired_range = 80.0  # 이 거리 안에서 공격
-        if dist > desired_range:
-            # 적 쪽으로 다가감
-            self._set_move_dir(+1 if dx > 0 else -1)
-        else:
-            # 너무 붙었으면 살짝 멈출 수도 있음
-            self._set_move_dir(0)
+        # 떨림 방지 로직 적용
+        approach_start_dist = 100.0  # 접근 시작
+        approach_end_dist = 70.0  # 접근 종료 (공격 사거리 안쪽)
 
-        # 2) 공격 타이밍 (쿨타임 기반)
+        # 공격 쿨타임 체크 및 실행
         now = get_time()
-        if now >= self.next_attack_time and dist <= desired_range + 20.0:
+        # 공격 범위(85) 안에 있고 쿨타임이 찼으면 공격
+        if dist <= approach_end_dist + 15.0 and now >= self.next_attack_time:
             self.next_attack_time = now + random.uniform(0.6, 1.2)
             self._tap_attack()
+            # 공격 중에는 잠시 멈춤
+            self._set_move_dir(0)
+            return BehaviorTree.SUCCESS
+
+        # 이동 로직(적당한 거리 유지)
+        is_moving = (self.me.move_dir != 0)
+
+        should_approach = False
+        if is_moving:
+            if dist > approach_end_dist:  # 70까지는 계속 감
+                should_approach = True
+        else:
+            if dist > approach_start_dist:  # 100 넘으면 출발
+                should_approach = True
+
+        if should_approach:
+            self._set_move_dir(+1 if dx > 0 else -1)
+        else:
+            self._set_move_dir(0)
 
         return BehaviorTree.SUCCESS
 
@@ -235,42 +260,45 @@ class CharacterAI:
         canvas_w = get_canvas_width()
         margin = 100.0
 
-        # 1. 기본 도망 방향 (적 반대)
-        escape_dir = 0
-        if dx > 0:
-            escape_dir = -1
-        else:
-            escape_dir = +1
+        escape_dir = -1 if dx > 0 else +1
 
-        # 2. 구석 체크
         is_cornered = False
         if escape_dir == -1 and me.x < margin:
             is_cornered = True
         elif escape_dir == +1 and me.x > canvas_w - margin:
             is_cornered = True
 
-        # 3. 행동 결정
-        safe_range = 300.0
+        # 도망 떨림 방지
+        flee_start_dist = 250.0  # 적이 250 안으로 들어오면 도망 시작
+        flee_end_dist = 350.0  # 350만큼 벌어지면 멈춤 (충분히 도망)
+
         crossover_range = 250.0
 
-        if dist < safe_range:
-            if is_cornered:
-                # [구석에 몰림]
-                if dist < crossover_range:
-                    # [수정] 무조건 적 방향으로 이동 키 유지 (공중에서도 이동해야 하므로)
-                    self._set_move_dir(-escape_dir)
+        is_moving = (self.me.move_dir != 0)
+        should_flee = False
 
-                    # [수정] 바닥에 있을 때만 점프 시도 (_tap_jump 내부에서 체크하지만 명시적으로)
-                    if not self._is_in_air():
-                        self._tap_jump()
-                else:
-                    # 적이 아직 멀면 제자리 대기
-                    self._set_move_dir(0)
+        if is_cornered:
+            # 구석 로직은 위급하므로 즉시 반응=
+            if dist < crossover_range:
+                self._set_move_dir(-escape_dir)
+                if not self._is_in_air():
+                    self._tap_jump()
+                return BehaviorTree.SUCCESS
             else:
-                # [구석 아님] 그냥 도망
-                self._set_move_dir(escape_dir)
+                self._set_move_dir(0)
+                return BehaviorTree.SUCCESS
+
+        # 일반 도망 로직 (Dead Zone)
+        if is_moving:
+            if dist < flee_end_dist:  # 350까지 벌어질 때까지 계속 도망
+                should_flee = True
         else:
-            # [안전]
+            if dist < flee_start_dist:  # 250 안으로 들어오면 도망 시작
+                should_flee = True
+
+        if should_flee:
+            self._set_move_dir(escape_dir)
+        else:
             self._set_move_dir(0)
 
         return BehaviorTree.SUCCESS
