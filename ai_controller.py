@@ -8,12 +8,28 @@ from behavior_tree import BehaviorTree, Selector, Action
 
 class CharacterAI:
     def __init__(self, me, enemy):
-        pass
-    def _build_bt(self):
-        pass
+        self.me = me          # AI가 조종할 Character (pid=2)
+        self.enemy = enemy    # 상대 Character (pid=1)
 
+        # 가상 키 입력 상태 (중복으로 주는거 방지)
+        self.left_down = False
+        self.right_down = False
+
+        # 점프 쿨타임용, 디폴트일땐 적당히 이정도 기다려라...
+        self.next_fidget_time = get_time() + random.uniform(1.0, 3.0)
+
+        self._build_bt()
+
+    def _build_bt(self):
+        a_wander = Action('기본적인 배회', self.act_wander_around_enemy)
+        a_fidget = Action('가끔 점프나잔동', self.act_small_fidgets)
+
+        root = default_move = Selector('DefaultMovement', a_wander, a_fidget)
+
+
+        self.bt = BehaviorTree(root)
     def update(self):
-        pass
+        self.bt.run()
 
     def _send_key(self, sdl_key, is_down: bool): # 특정 키를 입력한다는 헬퍼를 보내버리는
         pass
