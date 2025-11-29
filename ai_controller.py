@@ -108,6 +108,20 @@ class CharacterAI:
         # 0.2초 동안 누르고 있도록 설정
         self.jump_end_time = get_time() + 0.2
 
+    # ------------------------------------------------------------------
+    #  Condition 함수들(정신없어서 나눠야겠으)
+    # ------------------------------------------------------------------
+    def cond_anyone_has_weapon(self):
+        pass
+    def cond_me_has_weapon(self):
+        pass
+    def cond_enemy_has_weapon(self):
+        pass
+
+    # ------------------------------------------------------------------
+    #  Action 함수들(정신없어서 나눠야겠으)
+    # ------------------------------------------------------------------
+
     def act_wander_around_enemy(self):#너무 멀면 적 쪽으로 걸어가고 가까우면 멈추는 수준? 아직 지형지물 극복 방법은 안정했셔...
         enemy = self.enemy
         me = self.me
@@ -144,3 +158,10 @@ class CharacterAI:
         self._tap_jump()
 
         return BehaviorTree.SUCCESS
+
+    def act_simple_attack_mode(self):#이게 단순한 공격인건 나중에 뭐가 어떻게 추가될지 몰라서...
+        pass
+
+    def act_simple_defense_mode(self): # 이것도 다순한겨 글서
+        pass
+
