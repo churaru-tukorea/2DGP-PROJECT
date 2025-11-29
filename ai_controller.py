@@ -32,7 +32,11 @@ class CharacterAI:
         self.bt.run()
 
     def _send_key(self, sdl_key, is_down: bool): # 특정 키를 입력한다는 헬퍼를 보내버리는
-        pass
+        event_type = SDL_KEYDOWN if is_down else SDL_KEYUP
+        event = SimpleNamespace(type=event_type, key=sdl_key)
+        # Character.handle_event()를 그대로 재사용
+        self.me.handle_event(event)
+
     def _set_move_dir(self, dir_x: int):    #현재 이동방향이 어딘지 계속 세팅하는.
         pass
     def _tap_jump(self): # 짧게 점프 누르고 때는. 점프하는 키 눌렀다가 때는 정도면 될듯?
