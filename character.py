@@ -408,11 +408,17 @@ class Character:
 
         # 공격 예약(차지) 도달 체크
         if self.is_attack_reserved and self.attack_fire_time is not None:
-            if now >= self.attack_fire_time:
+            # 1) 무기가 없으면 예약만 취소하고 끝
+            if self.weapon is None:
+                self.is_attack_reserved = False
+                self.attack_fire_time = None
+            # 2) 무기가 있을 때만 ATTACK_READY 발동
+            elif now >= self.attack_fire_time:
                 self.is_attack_reserved = False
                 self.attack_fire_time = None
                 air = self.y > self.ground_y
                 self.state_machine.handle_state_event(('ATTACK_READY', {'air': air}))
+
 
         if self.is_spear_attack_reserved and self.spear_attack_time is not None:
             if now >= self.spear_attack_time:
