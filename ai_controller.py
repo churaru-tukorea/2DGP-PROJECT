@@ -884,34 +884,108 @@ class CharacterAI:
             self.next_attack_time = now + random.uniform(0.3, 0.6)  # 평소보다 훨씬 공격적
         return BehaviorTree.SUCCESS
 
+
     def act_go_for_item(self):
 
-        #화면에 떠 있는 아이템 중 가장 가까운 것 쪽으로 이동.
-        #(아직 점프는 몰루?)
+        #ItemHunt에서 호출되는 아이템 추적 액션.
+        #- cond_item_available()에서 self.item_target 지정
+        #- 여기서는 그 타겟까지의 scramble_nav 경로를 생성/실행한다.
 
         me = self.me
-        if me is None:
+        if me is None or self.stage is None:
+            self._reset_item_plan()
             return BehaviorTree.FAIL
 
-        target = None
-        min_dist = None
+        target = self.item_target
 
-        for layer in game_world.world:
-            for obj in layer:
-                if isinstance(obj, (SpeedClockItem, AttackClockItem)):
-                    dx = obj.x - me.x
-                    dist = abs(dx)
-                    if (min_dist is None) or (dist < min_dist):
-                        min_dist = dist
-                        target = obj
-
+        # 타겟이 더 이상 유효하지 않으면 (없어졌거나 버프가 켜졌거나)
         if target is None:
+            self._reset_item_plan()
             return BehaviorTree.FAIL
 
-        dx = target.x - me.x
-        if abs(dx) > 5.0:
-            self._set_move_dir(1 if dx > 0 else -1)
-        else:
-            # 거의 위에 도착했으면 멈춰서 충돌(먹기)을 기다림
-            self._set_move_dir(0)
-        return BehaviorTree.SUCCESS
+        # 혹시 버프가 이미 켜졌으면 그 타입 아이템은 이제 쓸모없음
+        now = get_time()
+        if isinstance(target, SpeedClockItem) and getattr(me, 'speed_buff_until', 0.0) > now:
+            self._reset_item_plan()
+            return BehaviorTree.FAIL
+        if isinstance(target, AttackClockItem) and getattr(me, 'attack_buff_until', 0.0) > now:
+            self._reset_item_plan()
+            return BehaviorTree.FAIL
+
+
+        if self.item_plan is None:
+            self.item_plan = scramble_nav.build_scramble_plan_to_point(
+                self.stage, me.x, me.y, target.x, target.y
+            )
+            self.item_segment_index = 0
+
+            # 경로 생성 실패 -> 일단 x축만 따라가는 단순 추적
+            if self.item_plan is None or not self.item_plan.segments:
+                dx = target.x - me.x
+                if abs(dx) > 5.0:
+                    self._set_move_dir(1 if dx > 0 else -1)
+                else:
+                    self._set_move_dir(0)
+                return BehaviorTree.RUNNING
+
+
+        if self.item_segment_index >= len(self.item_plan.segments):
+            # 거의 위까지 온 상태면 멈추고 충돌(먹기)를 기다림
+            if abs(me.y - target.y) <= 80.0:
+                self._set_move_dir(0)
+                # 다음 틱에는 cond_item_available()가 다시 검사해서
+                # 더 이상 타겟이 없으면 ItemHunt가 자연스럽게 빠져나감
+                return BehaviorTree.SUCCESS
+
+            # 높이가 너무 다르면 잘못 온 거니까 플랜 재계산
+            self._reset_item_plan()
+            return BehaviorTree.RUNNING
+
+
+        seg = self.item_plan.segments[self.item_segment_index]
+
+        if seg.kind == 'walk':
+            target_x = seg.target_x
+            if abs(target_x - me.x) <= 10.0:
+                # 이 세그먼트 완료
+                self._set_move_dir(0)
+                self.item_segment_index += 1
+            else:
+                move_dir = 1 if target_x > me.x else -1
+                self._set_move_dir(move_dir)
+            return BehaviorTree.RUNNING
+
+        elif seg.kind == 'jump':
+            tx1, tx2 = seg.takeoff_range
+            in_range = (tx1 <= me.x <= tx2)
+
+            # 아직 점프 구간이 아니면 걷기
+            if not in_range and not self._is_in_air():
+                move_dir = 1 if (me.x < (tx1 + tx2) / 2.0) else -1
+                self._set_move_dir(move_dir)
+                return BehaviorTree.RUNNING
+
+            # 점프해야 하는 구간이랑 공중 상태 체크
+            if in_range and not self._is_in_air():
+                # 점프 키 한 번 눌러줌
+                self._tap_jump()
+                # 좌/우 키는 점프 템플릿에 있는 방향대로 유지
+                if seg.jump_template.dir != 0:
+                    self._set_move_dir(seg.jump_template.dir)
+                return BehaviorTree.RUNNING
+
+            # 공중에 떠 있는 동안에는 방향 유지만
+            if self._is_in_air():
+                if seg.jump_template.dir != 0:
+                    self._set_move_dir(seg.jump_template.dir)
+                # 착지하면 다음 세그먼트로
+                # (착지 판정은 y속도/충돌로 캐릭터 쪽에서 처리되고 있을 거라, 여기서는
+                #  대충 높이/플랫폼 기준으로 넘어가는 정도로만 본다)
+                # 일단 단순하게: y 차이가 줄어들면 세그먼트 완료로 취급
+                if abs(me.y - target.y) <= 80.0:
+                    self.item_segment_index += 1
+                return BehaviorTree.RUNNING
+
+        # 혹시 정의 안 된 kind면 플랜 리셋
+        self._reset_item_plan()
+        return BehaviorTree.FAIL
