@@ -885,26 +885,19 @@ class CharacterAI:
             self.next_attack_time = now + random.uniform(0.3, 0.6)  # 평소보다 훨씬 공격적
         return BehaviorTree.SUCCESS
 
-
     def act_go_for_item(self):
-
-        #ItemHunt에서 호출되는 아이템 추적 액션.
-        #- cond_item_available()에서 self.item_target 지정
-        #- 여기서는 그 타겟까지의 scramble_nav 경로를 생성/실행한다.
-
+        # 1. 유효성 검사 (타겟 확인)
         me = self.me
         if me is None or self.stage is None:
             self._reset_item_plan()
             return BehaviorTree.FAIL
 
         target = self.item_target
-
-        # 타겟이 더 이상 유효하지 않으면 (없어졌거나 버프가 켜졌거나)
         if target is None:
             self._reset_item_plan()
             return BehaviorTree.FAIL
 
-        # 혹시 버프가 이미 켜졌으면 그 타입 아이템은 이제 쓸모없음
+        # 버프가 이미 켜졌는지 확인 (무기 로직에는 없는 아이템 전용 체크)
         now = get_time()
         if isinstance(target, SpeedClockItem) and getattr(me, 'speed_buff_until', 0.0) > now:
             self._reset_item_plan()
@@ -913,14 +906,14 @@ class CharacterAI:
             self._reset_item_plan()
             return BehaviorTree.FAIL
 
-
+        # 2. 플랜 생성 (무기 로직과 동일)
         if self.item_plan is None:
             self.item_plan = scramble_nav.build_scramble_plan_to_point(
                 self.stage, me.x, me.y, target.x, target.y
             )
             self.item_segment_index = 0
 
-            # 경로 생성 실패 -> 일단 x축만 따라가는 단순 추적
+            # 실패 시 단순 이동 Fallback
             if self.item_plan is None or not self.item_plan.segments:
                 dx = target.x - me.x
                 if abs(dx) > 5.0:
@@ -929,64 +922,92 @@ class CharacterAI:
                     self._set_move_dir(0)
                 return BehaviorTree.RUNNING
 
-
+        # 3. 플랜 완료 판정 (떨림 방지 80.0 적용)
         if self.item_segment_index >= len(self.item_plan.segments):
-            # 거의 위까지 온 상태면 멈추고 충돌(먹기)를 기다림
-            if abs(me.y - target.y) <= 80.0:
-                self._set_move_dir(0)
-                # 다음 틱에는 cond_item_available()가 다시 검사해서
-                # 더 이상 타겟이 없으면 ItemHunt가 자연스럽게 빠져나감
-                return BehaviorTree.SUCCESS
+            if abs(me.y - target.y) > 80.0:
+                self._reset_item_plan()
+                return BehaviorTree.RUNNING
 
-            # 높이가 너무 다르면 잘못 온 거니까 플랜 재계산
-            self._reset_item_plan()
+            # 높이 맞으면 X축 미세 조정 (먹기)
+            dx = target.x - me.x
+            if abs(dx) > 10.0:
+                self._set_move_dir(1 if dx > 0 else -1)
+            else:
+                self._set_move_dir(0)
+                # 여기서 SUCCESS를 리턴하면 BT가 끝나버릴 수 있으니,
+                # 먹을 때까지 계속 RUNNING으로 밀어붙이거나 SUCCESS로 넘김.
+                return BehaviorTree.SUCCESS
             return BehaviorTree.RUNNING
 
-
+        # 4. 세그먼트 실행 (무기 로직과 100% 동일)
         seg = self.item_plan.segments[self.item_segment_index]
 
+        # [A] 걷기 (Walk)
         if seg.kind == 'walk':
-            target_x = seg.target_x
-            if abs(target_x - me.x) <= 10.0:
-                # 이 세그먼트 완료
+            dist = seg.target_x - me.x
+            if abs(dist) <= 10.0:
                 self._set_move_dir(0)
                 self.item_segment_index += 1
             else:
-                move_dir = 1 if target_x > me.x else -1
-                self._set_move_dir(move_dir)
+                self._set_move_dir(1 if dist > 0 else -1)
             return BehaviorTree.RUNNING
 
+        # [B] 점프 (Jump)
         elif seg.kind == 'jump':
             tx1, tx2 = seg.takeoff_range
-            in_range = (tx1 <= me.x <= tx2)
 
-            # 아직 점프 구간이 아니면 걷기
-            if not in_range and not self._is_in_air():
-                move_dir = 1 if (me.x < (tx1 + tx2) / 2.0) else -1
-                self._set_move_dir(move_dir)
+            # [Step 1] 발사대까지 걷기 (무조건)
+            if not (tx1 <= me.x <= tx2):
+                if me.x < tx1:
+                    self._set_move_dir(1)
+                elif me.x > tx2:
+                    self._set_move_dir(-1)
                 return BehaviorTree.RUNNING
 
-            # 점프해야 하는 구간이랑 공중 상태 체크
-            if in_range and not self._is_in_air():
-                # 점프 키 한 번 눌러줌
-                self._tap_jump()
-                # 좌/우 키는 점프 템플릿에 있는 방향대로 유지
-                if seg.jump_template.dir != 0:
-                    self._set_move_dir(seg.jump_template.dir)
-                return BehaviorTree.RUNNING
+            # [Step 2] 발사대 도착 & 점프 로직
+            dest_plat_name = seg.jump_template.to_platform
+            platforms = scramble_nav.build_platforms_from_stage(self.stage)
+            dest_plat = platforms.get(dest_plat_name)
 
-            # 공중에 떠 있는 동안에는 방향 유지만
-            if self._is_in_air():
-                if seg.jump_template.dir != 0:
-                    self._set_move_dir(seg.jump_template.dir)
-                # 착지하면 다음 세그먼트로
-                # (착지 판정은 y속도/충돌로 캐릭터 쪽에서 처리되고 있을 거라, 여기서는
-                #  대충 높이/플랫폼 기준으로 넘어가는 정도로만 본다)
-                # 일단 단순하게: y 차이가 줄어들면 세그먼트 완료로 취급
-                if abs(me.y - target.y) <= 80.0:
+            target_height = dest_plat.T if dest_plat else (me.y + 100.0)
+
+            # 특수 대각선 점프 판별 (1층 -> 2층)
+            is_hard_diagonal = False
+            if seg.platform in ['r3_L2', 'r3_R1'] and dest_plat_name in ['r2_L', 'r2_R']:
+                is_hard_diagonal = True
+
+            # (1) 착지 성공 확인
+            is_falling = getattr(me, 'vy', 0) <= 0
+            if not self._is_in_air() and dest_plat and is_falling:
+                if abs(me.y - dest_plat.T) < 60.0:
+                    self.jump_end_time = 0.0
+                    self._send_key(SDLK_KP_1, False)
+                    self._set_move_dir(0)
                     self.item_segment_index += 1
+                    return BehaviorTree.RUNNING
+
+            # (2) 공중 제어 (Air Control)
+            if self._is_in_air() or (self.jump_end_time > 0 and get_time() < self.jump_end_time):
+                if is_hard_diagonal:
+                    self._set_move_dir(seg.dir)
+                else:
+                    safe_height = target_height + 50.0
+                    if me.y < safe_height:
+                        self._set_move_dir(0)
+                        self._send_key(SDLK_KP_1, True)
+                        self.jump_end_time = get_time() + 0.1
+                    else:
+                        self._set_move_dir(seg.dir)
                 return BehaviorTree.RUNNING
 
-        # 혹시 정의 안 된 kind면 플랜 리셋
-        self._reset_item_plan()
-        return BehaviorTree.FAIL
+            # (3) 점프 시도 (Takeoff)
+            self._set_move_dir(0)
+            hold_time = seg.jump_template.hold_time if seg.jump_template else 0.6
+            self._tap_jump(hold_time)
+
+            if is_hard_diagonal:
+                self._set_move_dir(seg.dir)
+
+            return BehaviorTree.RUNNING
+
+        return BehaviorTree.RUNNING
