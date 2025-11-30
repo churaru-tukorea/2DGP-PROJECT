@@ -732,10 +732,12 @@ class CharacterAI:
 
             # 높이 맞으면 가서 줍기 (미세 조정)
             dx = weapon.x - self.me.x
-            if abs(dx) > 10.0:
+            tol = self._pos_tolerance(base=10.0)
+
+            if abs(dx) > tol:
                 self._set_move_dir(1 if dx > 0 else -1)
             else:
-                self._set_move_dir(0)  # 멈춰서 줍기 대기
+                self._set_move_dir(0)
             return BehaviorTree.RUNNING
 
         # -------------------------------------------------------
@@ -760,9 +762,10 @@ class CharacterAI:
         # [A] 걷기 (Walk)
         if seg.kind == 'walk':
             target_x = seg.target_x
+            tol = self._pos_tolerance(base=10.0)
 
             # 도착 확인: X좌표가 근처인가?
-            if abs(target_x - self.me.x) <= 10.0:
+            if abs(target_x - self.me.x) <= tol:
                 self._set_move_dir(0)
                 self.scramble_segment_index += 1  # 다음 단계로!
             else:
@@ -846,18 +849,26 @@ class CharacterAI:
             # ---------------------------------------------------
             tx1, tx2 = seg.takeoff_range
 
-            if tx1 <= self.me.x <= tx2:
-                # 제자리 점프 시작
+            # 속도가 빨라질수록 '발사대에 올랐다'고 인정하는 범위를 넓게 잡는다
+            margin = self._pos_tolerance(base=5.0)
+            ex1 = tx1 - margin
+            ex2 = tx2 + margin
+
+            # 발사대 근처(ex1~ex2)에 들어왔으면 여기서 점프해도 된다고 본다
+            if ex1 <= self.me.x <= ex2:
                 self._set_move_dir(0)
-                self._tap_jump(0.5)
+                hold_time = seg.jump_template.hold_time if seg.jump_template else 0.5
+                self._tap_jump(hold_time)
+
+            # 아직 너무 왼쪽/오른쪽이면 중심 쪽으로 이동
             else:
-                # 발사대 이동
-                if self.me.x < tx1:
+                center = (tx1 + tx2) * 0.5
+                if self.me.x < center:
                     self._set_move_dir(1)
-                elif self.me.x > tx2:
+                else:
                     self._set_move_dir(-1)
 
-        return BehaviorTree.RUNNING
+            return BehaviorTree.RUNNING
 
 
     # 디버그 그리기
