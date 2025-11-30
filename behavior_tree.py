@@ -58,23 +58,11 @@ class Selector(Node):
         self.has_condition = False
         self.prev_running_pos = 0
 
-    def reset(self):
-        self.value = BehaviorTree.UNDEF
-        for child in self.children:
-            child.reset()
-
     def tag_condition(self):
         for child in self.children:
             child.tag_condition()
             if child.has_condition:
                 self.has_condition = True
-
-
-    def reset(self):
-        self.prev_running_pos = 0
-        for node in self.children:
-            node.reset()
-
 
     @Node.show_result
     def run(self):
@@ -87,6 +75,31 @@ class Selector(Node):
 
         self.value = BehaviorTree.FAIL
         return self.value
+
+    def reset(self):
+        # 두 개로 나뉘어 있던 reset을 하나로 합침
+        self.value = BehaviorTree.UNDEF
+        self.prev_running_pos = 0
+        for child in self.children:
+            child.reset()
+
+
+
+"""
+    def reset(self):
+        self.value = BehaviorTree.UNDEF
+        for child in self.children:
+            child.reset()
+"""
+
+
+"""
+    def reset(self):
+        self.prev_running_pos = 0
+        for node in self.children:
+            node.reset()
+"""
+
 
 
 
