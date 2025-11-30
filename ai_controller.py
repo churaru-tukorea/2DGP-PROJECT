@@ -662,9 +662,12 @@ class CharacterAI:
         return BehaviorTree.SUCCESS
 
     def act_scramble_to_weapon(self):
-        # -------------------------------------------------------
-        # 1. 기본 유효성 검사
-        # -------------------------------------------------------
+
+        # 스크램블 중에는 공격 예약이 끼어들면 경로가 꼬이니까, 이 프레임엔 무조건 막아버림
+        self._suppress_reserved_attack_this_frame()
+
+        # 기본 유효성 검사
+
         if self.stage is None or self.weapon_getter is None: return BehaviorTree.FAIL
 
         weapon = self.weapon_getter()
@@ -907,6 +910,9 @@ class CharacterAI:
         return BehaviorTree.SUCCESS
 
     def act_go_for_item(self):
+
+        # 아이템 먹으러 가는 동안에도 공격 예약은 끊어버린다
+        self._suppress_reserved_attack_this_frame()
         # 1. 유효성 검사 (타겟 확인)
         me = self.me
         if me is None or self.stage is None:
