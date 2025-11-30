@@ -14,6 +14,10 @@ import scramble_nav
 from sword import Sword
 from spear import Spear
 
+import game_world
+from items import SpeedClockItem, AttackClockItem
+
+
 class CharacterAI:
     def __init__(self, me, enemy):
         self.me = me          # AI가 조종할 Character (pid=2)
@@ -27,6 +31,11 @@ class CharacterAI:
         self.next_fidget_time = get_time() + random.uniform(1.0, 3.0)
         # 공격 쿨타임
         self.next_attack_time = get_time() + random.uniform(0.8, 1.5)
+
+        # 라운드 타이머 – 나중에 실제 게임 타이머랑 연결할겨
+        self.round_start_time = get_time()
+        self.round_duration = 60.0   # 일단 60초짜리 라운드라고 가정
+
 
         self.jump_end_time = 0.0
 
@@ -342,12 +351,36 @@ class CharacterAI:
 
         #현재 전투에 쓰이는 무기가 Spear 인스턴스면 SUCCESS.
 
-
-
         w = self._get_current_weapon()
         if isinstance(w, Spear):
             return BehaviorTree.SUCCESS
         return BehaviorTree.FAIL
+
+    def _get_time_left(self):
+        #라운드 남은 시간 (임시 구현)
+        elapsed = get_time() - self.round_start_time
+        return max(0.0, self.round_duration - elapsed)
+
+    def cond_time_low(self):
+        #남은 시간이 3초 이하인가? -> 올인 모드
+        if self._get_time_left() <= 3.0:
+            return BehaviorTree.SUCCESS
+        return BehaviorTree.FAIL
+
+    def cond_time_high(self):
+        #남은 시간이 10초 이상인가? -> 여유 있음, 아이템 탐색 가능
+        if self._get_time_left() >= 10.0:
+            return BehaviorTree.SUCCESS
+        return BehaviorTree.FAIL
+
+    def cond_item_available(self):
+        #월드에 아이템(SpeedClock / AttackClock)이 하나라도 있는가?
+        for layer in game_world.world:
+            for obj in layer:
+                if isinstance(obj, (SpeedClockItem, AttackClockItem)):
+                    return BehaviorTree.SUCCESS
+        return BehaviorTree.FAIL
+
     # ------------------------------------------------------------------
     #  Action 함수들(정신없어서 나눠야겠으)
     # ------------------------------------------------------------------
@@ -735,3 +768,32 @@ class CharacterAI:
                 current_plat = platforms.get(seg.platform)
                 y = current_plat.T if current_plat else self.me.y
                 draw_rectangle(x1, y - 5, x2, y + 5)
+
+    def act_rush_attack(self):
+
+        #시간 임박 시 사용하는 올인 공격 모드.
+        #항상 적 방향으로 전진
+        #일정 거리 안에서는 쿨을 짧게 잡고 공격 난사
+        enemy = self.enemy
+        me = self.me
+
+        if enemy is None or me is None:
+            return BehaviorTree.FAIL
+
+        dx = enemy.x - me.x
+        dist = abs(dx)
+        now = get_time()
+
+        # 항상 적 방향으로 밀어붙이기
+        move_dir = 1 if dx > 0 else -1
+        self._set_move_dir(move_dir)
+
+        # 너무 멀면 그냥 쫓기만 한다
+        if dist > 180.0:
+            return BehaviorTree.SUCCESS
+
+        # 충분히 붙었으면 공격 난사 (쿨을 짧게)
+        if not self._is_in_air() and now >= self.next_attack_time:
+            self._tap_attack()
+            self.next_attack_time = now + random.uniform(0.3, 0.6)  # 평소보다 훨씬 공격적
+        return BehaviorTree.SUCCESS
