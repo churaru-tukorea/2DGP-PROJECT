@@ -325,6 +325,28 @@ class CharacterAI:
         if hasattr(me, 'attack_fire_time'):
             me.attack_fire_time = None
 
+    # 속도에 따른 위치 허용 오차
+    def _pos_tolerance(self, base=10.0):
+
+        #기본 속도일 때는 base 픽셀,
+        #속도가 1.4배면 그만큼 여유를 늘려서 오실레이션을 줄인다.
+
+        me = self.me
+        if me is None:
+            return base
+
+        base_speed = getattr(me, 'base_move_speed', 200.0)
+        move_speed = getattr(me, 'move_speed', base_speed)
+
+        if base_speed <= 0:
+            return base
+
+        ratio = move_speed / base_speed
+        # 너무 과하게 튀지 않게 0.5~2.0 사이로 클램프
+        ratio = max(0.5, min(2.0, ratio))
+
+        return base * ratio
+
 
     # ------------------------------------------------------------------
     #  Condition 함수들(정신없어서 나눠야겠으)
