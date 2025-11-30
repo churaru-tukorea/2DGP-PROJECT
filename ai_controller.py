@@ -48,6 +48,10 @@ class CharacterAI:
         self.crossover_end_time = 0.0
         self.crossover_move_dir = 0
 
+        self.item_target = None
+        self.item_plan = None
+        self.item_segment_index = 0
+
         self._build_bt()
 
     def _build_bt(self):
@@ -295,6 +299,10 @@ class CharacterAI:
         # 방향도 정리해 주는 게 깔끔함
         self._set_move_dir(0)
 
+    def _reset_item_plan(self):
+        self.item_plan = None
+        self.item_segment_index = 0
+
 
     # ------------------------------------------------------------------
     #  Condition 함수들(정신없어서 나눠야겠으)
@@ -386,24 +394,19 @@ class CharacterAI:
         return max(0.0, self.round_duration - elapsed)
 
     def cond_time_low(self):
-        #남은 시간이 3초 이하인가? -> 올인 모드
-        if self._get_time_left() <= 3.0:
-            return BehaviorTree.SUCCESS
-        return BehaviorTree.FAIL
+        #남은 시간이 3초 이하인가? → 올인 모드.
+        remain = self._weapon_time_left()
+        if remain is None:
+            return BehaviorTree.FAIL
+        return BehaviorTree.SUCCESS if remain <= 3.0 else BehaviorTree.FAIL
 
     def cond_time_high(self):
-        #남은 시간이 10초 이상인가? -> 여유 있음, 아이템 탐색 가능
-        if self._get_time_left() >= 10.0:
-            return BehaviorTree.SUCCESS
-        return BehaviorTree.FAIL
+        #남은 시간이 10초 이상인가? → 아직 여유 있음, 아이템 탐색 가능.
+        remain = self._weapon_time_left()
+        if remain is None:
+            return BehaviorTree.FAIL
+        return BehaviorTree.SUCCESS if remain >= 10.0 else BehaviorTree.FAIL
 
-    def cond_item_available(self):
-        #월드에 아이템(SpeedClock / AttackClock)이 하나라도 있는가?
-        for layer in game_world.world:
-            for obj in layer:
-                if isinstance(obj, (SpeedClockItem, AttackClockItem)):
-                    return BehaviorTree.SUCCESS
-        return BehaviorTree.FAIL
 
     def _weapon_time_left(self):
         #내가 들고 있는 무기의 남은 시간을 초 단위로 반환. 없으면 None.
@@ -419,6 +422,50 @@ class CharacterAI:
         now = get_time()
         remain = limit - (now - pick)
         return max(0.0, remain)
+
+    def cond_item_available(self):
+
+        #지금 나에게 '의미 있는' 아이템이 하나라도 있는가?
+        #- SpeedClock: speed_buff가 꺼져 있어야 후보
+        #- AttackClock: attack_buff가 꺼져 있어야 후보
+
+        me = self.me
+        if me is None:
+            self.item_target = None
+            self._reset_item_plan()
+            return BehaviorTree.FAIL
+
+        now = get_time()
+        best = None
+        best_dist = None
+
+        for layer in game_world.world:
+            for obj in layer:
+                # 1) 타입별로 버프 유효성 확인
+                if isinstance(obj, SpeedClockItem):
+                    if getattr(me, 'speed_buff_until', 0.0) > now:
+                        continue  # 이미 스피드 버프 중이면 무시
+                elif isinstance(obj, AttackClockItem):
+                    if getattr(me, 'attack_buff_until', 0.0) > now:
+                        continue  # 이미 공격 버프 중이면 무시
+                else:
+                    continue  # 관심 없는 아이템
+
+                # 2) 거리 기준으로 가장 가까운 후보 선택 (단순 x축 기준)
+                dx = obj.x - me.x
+                dist = abs(dx)
+                if best is None or dist < best_dist:
+                    best = obj
+                    best_dist = dist
+
+        if best is None:
+            self.item_target = None
+            self._reset_item_plan()
+            return BehaviorTree.FAIL
+
+        # 가장 가까운 '의미 있는' 아이템을 타겟으로 고정
+        self.item_target = best
+        return BehaviorTree.SUCCESS
 
     # ------------------------------------------------------------------
     #  Action 함수들(정신없어서 나눠야겠으)
