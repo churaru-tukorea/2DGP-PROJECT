@@ -444,7 +444,7 @@ class CharacterAI:
         # -------------------------------------------------------
         if self.scramble_segment_index >= len(self.scramble_plan.segments):
             # 경로 끝났는데 무기랑 높이 차이가 크다? -> 잘못 온 거임. 리셋.
-            if abs(self.me.y - weapon.y) > 40.0:
+            if abs(self.me.y - weapon.y) > 80.0:
                 self._reset_scramble_plan()
                 return BehaviorTree.RUNNING
 
@@ -490,25 +490,24 @@ class CharacterAI:
 
             # [B] 점프 (Jump)
         elif seg.kind == 'jump':
-            # ---------------------------------------------------
-            # 0. 목표 정보 확보
-            # ---------------------------------------------------
+            # 목표 플랫폼 정보
             dest_plat_name = seg.jump_template.to_platform
             platforms = scramble_nav.build_platforms_from_stage(self.stage)
             dest_plat = platforms.get(dest_plat_name)
 
-            # [디버그] 목표 플랫폼을 못 찾으면 로그 띄움 (이게 None이면 바로 옆으로 새버림)
-            if not dest_plat:
-                print(f"[ERROR] Cannot find platform: {dest_plat_name}")
-
-            # 목표 높이 설정 (플랫폼이 있으면 그 높이, 없으면 그냥 내 머리 위 100)
+            # 목표 높이 (없으면 내 머리 위 100)
             target_height = dest_plat.T if dest_plat else (self.me.y + 100.0)
 
             # ---------------------------------------------------
-            # 1. 착지 성공 확인 (Landing Check)
+            # 1. 착지 성공 확인 (Landing Check) - [대폭 수정]
             # ---------------------------------------------------
-            if not self._is_in_air() and dest_plat:
-                if abs(self.me.y - dest_plat.T) < 40.0:
+            # [중요] 올라가는 중(vy > 0)에는 절대 착지 판정을 하지 않는다!
+            # 떨어지는 중(vy <= 0)이거나, 이미 땅에 붙었을 때만 체크한다.
+            # self.me.vy가 없다면 velocity_y 등으로 변수명 확인 필요 (보통 vy 사용)
+            is_falling = getattr(self.me, 'vy', 0) <= 0
+
+            if not self._is_in_air() and dest_plat and is_falling:
+                if abs(self.me.y - dest_plat.T) < 60.0:
                     self.jump_end_time = 0.0
                     self._send_key(SDLK_KP_1, False)
                     self._set_move_dir(0)
@@ -516,22 +515,22 @@ class CharacterAI:
                     return BehaviorTree.RUNNING
 
             # ---------------------------------------------------
-            # 2. 공중 제어 (Air Control) - [수정됨: 강제 상승 모드]
+            # 2. 공중 제어 (Air Control) - [안전 높이 수정]
             # ---------------------------------------------------
             if self._is_in_air() or (self.jump_end_time > 0 and get_time() < self.jump_end_time):
 
-                # [핵심 로직] 아직 목표 높이보다 낮다면?
-                if self.me.y < target_height + 10.0:  # 여유있게 +10
-                    # A. 수직 상승 (좌우 이동 금지)
+                # [수정] 배꼽(y)이 아니라 '발바닥'이 걸리지 않으려면
+                # 목표 높이보다 최소 50px(캐릭터 반 키 + 여유)은 더 높아야 한다.
+                safe_threshold = target_height + 50.0
+
+                if self.me.y < safe_threshold:
+                    # 높이가 부족하다 -> 무조건 수직 상승
                     self._set_move_dir(0)
-
-                    # B. 점프 키 강제 유지 (Gravity 극복)
-                    # hold_time에 의존하지 않고, 높이가 될 때까지 계속 누름
+                    # 중력을 이기기 위해 점프 키 강제 유지
                     self._send_key(SDLK_KP_1, True)
-                    self.jump_end_time = get_time() + 0.1  # 타이머 계속 연장
-
+                    self.jump_end_time = get_time() + 0.1
                 else:
-                    # [성공] 높이 확보됨! 이제 옆으로 진입
+                    # 높이 확보됨 -> 이제 옆으로 진입
                     self._set_move_dir(seg.dir)
 
                 return BehaviorTree.RUNNING
@@ -544,10 +543,7 @@ class CharacterAI:
             if tx1 <= self.me.x <= tx2:
                 # 제자리 점프 시작
                 self._set_move_dir(0)
-
-                # 일단 점프 시작 (시간은 넉넉하게 줌, 어차피 위에서 제어함)
                 self._tap_jump(0.5)
-
             else:
                 # 발사대 이동
                 if self.me.x < tx1:
@@ -562,32 +558,39 @@ class CharacterAI:
 
     def draw(self):
         from pico2d import draw_rectangle, draw_line
-        import scramble_nav  # 플랫폼 정보 가져오기 위해 필요
+        import scramble_nav
 
         if not self.scramble_plan or not self.scramble_plan.segments:
             return
 
-        # 플랫폼 정보 빌드
+        # 플랫폼 정보
         platforms = scramble_nav.build_platforms_from_stage(self.stage)
 
         if self.scramble_segment_index < len(self.scramble_plan.segments):
             seg = self.scramble_plan.segments[self.scramble_segment_index]
 
-            # 1. 목표 X 위치 (초록색 선)
-            if seg.target_x:
-                draw_line(seg.target_x, self.me.y - 50, seg.target_x, self.me.y + 50, 0, 0, 0)
+            # --------------------------------------------------
+            # [수정] 그릴 타겟 X 좌표 계산 로직 강화
+            # --------------------------------------------------
+            draw_target_x = seg.target_x
 
-            # 2. 점프 구간 표시 (붉은색 박스)
+            # Walk 상태가 아니라 Jump 상태라서 target_x가 None이라면?
+            # -> 점프 발사대(takeoff)의 중앙을 타겟으로 잡는다.
+            if draw_target_x is None and seg.kind == 'jump' and seg.takeoff_range:
+                draw_target_x = (seg.takeoff_range[0] + seg.takeoff_range[1]) * 0.5
+
+            # 이제 타겟 X가 있으면 무조건 선을 그린다 (화면 위아래로 길게)
+            if draw_target_x is not None:
+                draw_line(draw_target_x, 0, draw_target_x, 1000, 0, 255, 0)
+            # --------------------------------------------------
+
+            # 점프 구간 박스 그리기 (기존 유지)
             if seg.kind == 'jump' and seg.takeoff_range:
                 x1, x2 = seg.takeoff_range
-
-                # 내 키 높이가 아니라, '현재 플랫폼'의 높이에 그림
                 current_plat = platforms.get(seg.platform)
                 if current_plat:
-                    y = current_plat.T  # 플랫폼 윗면(Top)
-                    # 박스를 플랫폼 발판 위에 딱 붙여서 그림
+                    y = current_plat.T
                     draw_rectangle(x1, y - 5, x2, y + 5)
                 else:
-                    # 플랫폼 정보 없으면 그냥 내 위치에 그림 (Fallback)
                     y = self.me.y
                     draw_rectangle(x1, y - 10, x2, y + 10)
