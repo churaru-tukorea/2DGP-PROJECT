@@ -493,9 +493,20 @@ class CharacterAI:
 
 
             # 목표 플랫폼 정보
+            #seg = self.scramble_plan[self.scramble_segment_index]
             dest_plat_name = seg.jump_template.to_platform
+
+            is_hard_diagonal = False
+            if seg.kind == 'jump' and seg.jump_template:
+                fp = seg.jump_template.from_platform
+                tp = seg.jump_template.to_platform
+                if (fp, tp) in (('r3_L2', 'r2_L'), ('r3_R1', 'r2_R')):
+                    is_hard_diagonal = True
+
             platforms = scramble_nav.build_platforms_from_stage(self.stage)
             dest_plat = platforms.get(dest_plat_name)
+
+
 
             # 목표 높이 (없으면 내 머리 위 100)
             target_height = dest_plat.T if dest_plat else (self.me.y + 100.0)
@@ -523,18 +534,28 @@ class CharacterAI:
             # ---------------------------------------------------
             if self._is_in_air() or (self.jump_end_time > 0 and get_time() < self.jump_end_time):
 
-                # 목표 높이보다 최소 50px(캐릭터 반 키 + 여유)은 더 높아야 한다.
-                safe_threshold = target_height + 80.0
+                # [Case A] 특수 대각선 점프 (1층 -> 2층)
+                # : 높이를 기다리지 않고, 점프 시작하자마자 바로 옆으로 민다.
+                if is_hard_diagonal:
+                    self._set_move_dir(seg.dir)      # 즉시 가로 이동 (방향키 누름)
+                    self._send_key(SDLK_KP_1, True)  # 점프키 꾹 유지 (최대 높이)
+                    self.jump_end_time = get_time() + 0.1 # 홀드 시간 갱신
 
-                if self.me.y < safe_threshold:
-                    # 높이가 부족하다 -> 무조건 수직 상승
-                    self._set_move_dir(0)
-                    # 중력을 이기기 위해 점프 키 강제 유지
-                    self._send_key(SDLK_KP_1, True)
-                    self.jump_end_time = get_time() + 0.1
+                # [Case B] 일반 점프 (그 외 모든 상황: 2층->3층 등)
+                # : "ㄱ"자 이동 (머리 박지 않게 충분히 뜰 때까지 X축 이동 제한)
                 else:
-                    # 높이 확보됨 -> 이제 옆으로 진입
-                    self._set_move_dir(seg.dir)
+                    # 목표 높이보다 최소 50px은 더 높아야 안전하다고 판단
+                    safe_threshold = target_height + 80.0
+
+                    if self.me.y < safe_threshold:
+                        # 높이가 부족하다 -> 무조건 수직 상승 (X축 입력 0)
+                        self._set_move_dir(0)
+                        # 중력을 이기기 위해 점프 키 강제 유지
+                        self._send_key(SDLK_KP_1, True)
+                        self.jump_end_time = get_time() + 0.1
+                    else:
+                        # 높이 확보됨 -> 이제 옆으로 진입
+                        self._set_move_dir(seg.dir)
 
                 return BehaviorTree.RUNNING
 
