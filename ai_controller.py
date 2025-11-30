@@ -402,50 +402,49 @@ class CharacterAI:
 
         return BehaviorTree.SUCCESS
 
-    def act_simple_attack_mode(self):#이게 단순한 공격인건 나중에 뭐가 어떻게 추가될지 몰라서...
-        #- 내가 무기를 들고 있으면:
-        #적과의 거리가 멀면 → 다가간다.
-        #적과의 거리가 어느 정도면 → 가끔 공격 키를 누른다.
-        #(아직 패링, 타이머, 아이템, 각 싸움 전부 무시. 정확히는 구체적으로 어떻게 할지 아직 모르겠음...)
-
-        enemy = self.enemy
-        me = self.me
-
-        if enemy is None or me is None:
-            return BehaviorTree.FAIL
-
-        dx = enemy.x - me.x
-        dist = abs(dx)
-
-        # 떨림 방지 로직 적용
-        approach_start_dist = 100.0  # 접근 시작
-        approach_end_dist = 70.0  # 접근 종료 (공격 사거리 안쪽)
-
-        # 공격 쿨타임 체크 및 실행
-        now = get_time()
-        # 공격 범위(85) 안에 있고 쿨타임이 찼으면 공격
-        if dist <= approach_end_dist + 15.0 and now >= self.next_attack_time:
-            self.next_attack_time = now + random.uniform(0.6, 1.2)
-            self._tap_attack()
-            # 공격 중에는 잠시 멈춤
+    def act_simple_attack_mode(self):
+        me, enemy = self.me, self.enemy
+        if enemy is None:
             self._set_move_dir(0)
             return BehaviorTree.SUCCESS
 
-        # 이동 로직(적당한 거리 유지)
-        is_moving = (self.me.move_dir != 0)
+        dx = enemy.x - me.x
+        dy = enemy.y - me.y
+        distance = (dx * dx + dy * dy) ** 0.5
 
-        should_approach = False
-        if is_moving:
-            if dist > approach_end_dist:  # 70까지는 계속 감
-                should_approach = True
-        else:
-            if dist > approach_start_dist:  # 100 넘으면 출발
-                should_approach = True
+        # 너무 멀리 떨어져 있으면 쫓아가기
+        attack_range = 220.0
+        approach_margin = 60.0  # 이 정도 여유 두고 멈추게
 
-        if should_approach:
-            self._set_move_dir(+1 if dx > 0 else -1)
-        else:
-            self._set_move_dir(0)
+        # 1) 공격 사거리 밖 → 적 방향으로 이동
+        if distance > attack_range:
+            dir_x = 1 if dx > 0 else -1
+            self._set_move_dir(dir_x)
+            return BehaviorTree.SUCCESS
+
+        # 2) 너무 붙었으면 살짝 거리 벌리기 (원하면 유지, 아니면 이 블록 통째로 삭제해도 됨)
+        if distance < attack_range - approach_margin:
+            if dx != 0:
+                dir_x = 1 if dx > 0 else -1
+                self._set_move_dir(-dir_x)
+            else:
+                self._set_move_dir(0)
+            return BehaviorTree.SUCCESS
+
+        # 3) 적당한 거리 → 멈추고 공격 시도
+        self._set_move_dir(0)
+
+        now = get_time()
+
+        # 캐릭터 입장에서 공격이 가능한지 직접 체크
+        attack_ready = (
+                getattr(me, 'weapon', None) is not None
+                and not getattr(me, 'is_attack_reserved', False)
+                and now >= getattr(me, 'attack_cooldown_until', 0.0)
+        )
+
+        if attack_ready:
+            self._tap_attack()
 
         return BehaviorTree.SUCCESS
 

@@ -725,13 +725,12 @@ class Character:
         self.weapon = sword
         sword.state = 'EQUIPPED'
         sword.owner = self
-        sword.stage = self.stage  # 캐릭터가 stage를 가지고 있다면
 
         # 검을 캐릭터에 붙이는 기존 헬퍼가 있으면 사용
         if hasattr(sword, 'attach_to'):
             sword.attach_to(self)
 
-        # 공격 사거리 같은게 있으면 검 길이에 맞게 갱신
+        # 공격 사거리 같은 게 있으면 검 길이에 맞게 갱신
         if hasattr(self, 'attack_range') and hasattr(sword, 'length'):
             self.attack_range = sword.length
 
