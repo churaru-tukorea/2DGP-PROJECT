@@ -212,11 +212,15 @@ class CharacterAI:
 
         self.bt = BehaviorTree(root)
     def update(self):
+
+        if hasattr(self.me, 'allow_reserved_attack'):
+            self.me.allow_reserved_attack = True
+
         self.bt.run()
 
         if self.jump_end_time > 0 and get_time() >= self.jump_end_time:
-            self._send_key(SDLK_KP_1, False)  # 키 떼기
-            self.jump_end_time = 0.0  # 리셋
+            self._send_key(SDLK_KP_1, False)
+            self.jump_end_time = 0.0
 
     def _send_key(self, sdl_key, is_down: bool): # 특정 키를 입력한다는 헬퍼를 보내버리는
         event_type = SDL_KEYDOWN if is_down else SDL_KEYUP
@@ -303,6 +307,23 @@ class CharacterAI:
     def _reset_item_plan(self):
         self.item_plan = None
         self.item_segment_index = 0
+
+    # 공격 예약 억제 헬퍼
+    def _suppress_reserved_attack_this_frame(self):
+        #이 프레임 동안은 예약 공격이 발동되지 않도록 막는다.
+        me = self.me
+        if me is None:
+            return
+
+        #현재 프레임에는 예약 발동 금지
+        if hasattr(me, 'allow_reserved_attack'):
+            me.allow_reserved_attack = False
+
+        # 이미 걸려 있던 예약도 같이 지워버린다
+        if hasattr(me, 'is_attack_reserved'):
+            me.is_attack_reserved = False
+        if hasattr(me, 'attack_fire_time'):
+            me.attack_fire_time = None
 
 
     # ------------------------------------------------------------------
