@@ -11,6 +11,9 @@ from sdl2 import SDLK_KP_2
 from behavior_tree import BehaviorTree, Selector, Action, Condition, Sequence
 import scramble_nav
 
+from sword import Sword
+from spear import Spear
+
 class CharacterAI:
     def __init__(self, me, enemy):
         self.me = me          # AI가 조종할 Character (pid=2)
@@ -247,11 +250,9 @@ class CharacterAI:
         return True
 
     def set_scramble_context(self, stage_colliders, weapon_getter):
-        """
-        stage_colliders: StageColliders 인스턴스
-        weapon_getter: 호출하면 현재 '줍으러 갈' 무기(Sword/Spear)를 돌려주는 함수
-                       예) lambda: sword
-        """
+       # stage_colliders: StageColliders 인스턴스
+        #weapon_getter: 호출하면 현재 '줍으러 갈' 무기(Sword/Spear)를 돌려주는 함수
+        #               예) lambda: sword
         self.stage = stage_colliders
         self.weapon_getter = weapon_getter
 
@@ -310,6 +311,43 @@ class CharacterAI:
             return False
 
         return True
+    def _get_current_weapon(self):
+        #지금 전투에서 '주요 무기'가 무엇인지 반환.
+        #- 내가 무기를 들고 있으면: 내 무기
+        #- 아니면 적이 들고 있으면: 적 무기
+        #- 둘 다 없으면: None
+
+        me_weapon = getattr(self.me, 'weapon', None)
+        if me_weapon is not None:
+            return me_weapon
+
+        if self.enemy is not None:
+            enemy_weapon = getattr(self.enemy, 'weapon', None)
+            if enemy_weapon is not None:
+                return enemy_weapon
+
+        return None
+
+    def cond_weapon_type_sword(self):
+
+        #현재 전투에 쓰이는 무기가 Sword 인스턴스면 SUCCESS.
+        #(누가 들고 있든 상관 없음)
+
+        w = self._get_current_weapon()
+        if isinstance(w, Sword):
+            return BehaviorTree.SUCCESS
+        return BehaviorTree.FAIL
+
+    def cond_weapon_type_spear(self):
+
+        #현재 전투에 쓰이는 무기가 Spear 인스턴스면 SUCCESS.
+
+
+
+        w = self._get_current_weapon()
+        if isinstance(w, Spear):
+            return BehaviorTree.SUCCESS
+        return BehaviorTree.FAIL
     # ------------------------------------------------------------------
     #  Action 함수들(정신없어서 나눠야겠으)
     # ------------------------------------------------------------------
