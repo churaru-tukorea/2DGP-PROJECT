@@ -500,10 +500,7 @@ class CharacterAI:
             # 목표 높이 (없으면 내 머리 위 100)
             target_height = dest_plat.T if dest_plat else (self.me.y + 100.0)
 
-#특수 대각선 점프인지 확인하는 플래그
-            is_hard_diagonal = False
-            if seg.platform in ['r3_L2', 'r3_R1'] and dest_plat_name in ['r2_L', 'r2_R']:
-                is_hard_diagonal = True
+
 
             # ---------------------------------------------------
             # 1. 착지 성공 확인 (Landing Check) - [대폭 수정]
@@ -527,7 +524,7 @@ class CharacterAI:
             if self._is_in_air() or (self.jump_end_time > 0 and get_time() < self.jump_end_time):
 
                 # 목표 높이보다 최소 50px(캐릭터 반 키 + 여유)은 더 높아야 한다.
-                safe_threshold = target_height + 50.0
+                safe_threshold = target_height + 80.0
 
                 if self.me.y < safe_threshold:
                     # 높이가 부족하다 -> 무조건 수직 상승
