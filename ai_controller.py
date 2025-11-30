@@ -39,49 +39,135 @@ class CharacterAI:
         self._build_bt()
 
     def _build_bt(self):
+        # --- 기본 배회/잔동 ---
         a_wander = Action('기본적인 배회', self.act_wander_around_enemy)
         a_fidget = Action('가끔 점프나잔동', self.act_small_fidgets)
+        default_move = Selector('DefaultMovement', a_fidget, a_wander)
 
-        root = default_move = Selector('DefaultMovement', a_fidget, a_wander)
-
+        # --- 무기 소유 관련 조건 ---
         c_anyone_has_weapon = Condition('누군가 무기 들고 있음?', self.cond_anyone_has_weapon)
         c_me_has_weapon = Condition('내가 무기 들고 있음?', self.cond_me_has_weapon)
         c_enemy_has_weapon = Condition('적이 무기 들고 있음?', self.cond_enemy_has_weapon)
 
-        # --- 장비 상태에 따른 행동 ---
+        # --- 무기 타입 관련 조건 (검 / 창) ---
+        c_weapon_is_sword = Condition('무기 타입 == 검?', self.cond_weapon_type_sword)
+        c_weapon_is_spear = Condition('무기 타입 == 창?', self.cond_weapon_type_spear)
+
+        # --- 공용 simple 공격/도망 액션 ---
         a_attack_simple = Action('공격 모드', self.act_simple_attack_mode)
         a_defend_simple = Action('도망 모드', self.act_simple_defense_mode)
+
+
+        # 검 모드: SwordPhaseTree (1단계 = simple 로직 래핑)
+
+
+        # 공격자 행동(AttackerBehavior) – 일단은 simple 공격만
+        a_sword_chase = Action('검-추격/몰기', self.act_simple_attack_mode)
+        sword_attacker_behavior = Selector(
+            'SwordAttackerBehavior',
+            a_sword_chase,   # 나중에 TimeLowAllIn, ItemHunt, CreateAngle가 여기 추가될 예정
+        )
+
+        # 방어자 행동(DefenderBehavior) – 일단은 simple 도망만
+        a_sword_flee = Action('검-도망', self.act_simple_defense_mode)
+        sword_defender_behavior = Selector(
+            'SwordDefenderBehavior',
+            a_sword_flee,    # 나중에 EmergencyParry, RunAway, PrepareParry 붙일 자리
+        )
+
+        # 내가 들었을 때 = 공격자 트리
+        sword_attacker_tree = Sequence(
+            'SwordAttackerTree',
+            c_me_has_weapon,
+            sword_attacker_behavior,
+        )
+
+        # 적이 들었을 때 = 방어자 트리
+        sword_defender_tree = Sequence(
+            'SwordDefenderTree',
+            c_enemy_has_weapon,
+            sword_defender_behavior,
+        )
+
+        # 검 모드 공수 전환 셀렉터
+        sword_role_selector = Selector(
+            'SwordRoleSelector',
+            sword_attacker_tree,
+            sword_defender_tree,
+        )
+
+        # 무기 타입이 검일 때만 이 트리가 유효
+        sword_phase_tree = Sequence(
+            'SwordPhaseTree',
+            c_weapon_is_sword,
+            sword_role_selector,
+        )
+
+
+        #  모드: SpearPhaseTree (1단계 = 완전 simple 위임)
+
+
+        spear_attacker_tree = Sequence(
+            'SpearAttackerTree',
+            c_me_has_weapon,
+            a_attack_simple,
+        )
+
+        spear_defender_tree = Sequence(
+            'SpearDefenderTree',
+            c_enemy_has_weapon,
+            a_defend_simple,
+        )
+
+        spear_role_selector = Selector(
+            'SpearRoleSelector',
+            spear_attacker_tree,
+            spear_defender_tree,
+        )
+
+        spear_phase_tree = Sequence(
+            'SpearPhaseTree',
+            c_weapon_is_spear,
+            spear_role_selector,
+        )
+
+        # 장비 상태 Phase 통합 (검/창 분기)
+
+
+        equipped_phase_selector = Selector(
+            'EquippedPhaseSelector',
+            sword_phase_tree,
+            spear_phase_tree,
+        )
+
+        weapon_equipped_phase = Sequence(
+            'WeaponEquippedPhase',
+            c_anyone_has_weapon,
+            equipped_phase_selector,
+        )
+
+
+        # Scramble (둘 다 맨손 → 무기 줍기)
+
 
         c_scramble_target = Condition('주워야 할 무기 있음?', self.cond_scramble_target_exists)
         a_scramble_to_weapon = Action('무기 줍기 스크램블', self.act_scramble_to_weapon)
 
-        attacker_branch = Sequence('Equipped-Attacker',
-                                   c_me_has_weapon,
-                                   a_attack_simple)
+        scramble_phase = Sequence(
+            '둘 다 맨손이라 무기 줍기',
+            c_scramble_target,
+            a_scramble_to_weapon,
+        )
 
-        defender_branch = Sequence('Equipped-Defender',
-                                   c_enemy_has_weapon,
-                                   a_defend_simple)
 
-        equipped_role_selector = Selector('EquippedRoleSelector',
-                                          attacker_branch,
-                                          defender_branch)
+        # 최상위 루트
 
-        weapon_equipped_phase = Sequence('WeaponEquippedPhase',
-                                         c_anyone_has_weapon,
-                                         equipped_role_selector)
-
-        scramble_phase = Sequence('둘 다 맨손이라 무기 줍기',
-                                  c_scramble_target,
-                                  a_scramble_to_weapon
-                                  )
-
-        root = Selector('Root',
-                        weapon_equipped_phase,
-                        scramble_phase,
-                        default_move)
-
-        self.bt = BehaviorTree(root)
+        root = Selector(
+            'Root',
+            weapon_equipped_phase,  # 1순위: 누군가 무기 들고 있을 때 전투
+            scramble_phase,         # 2순위: 둘 다 맨손이면 무기 쟁탈전
+            default_move,           # 3순위: 그냥 배회/잔동
+        )
 
         self.bt = BehaviorTree(root)
     def update(self):
