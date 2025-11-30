@@ -69,15 +69,31 @@ class CharacterAI:
         a_attack_simple = Action('공격 모드', self.act_simple_attack_mode)
         a_defend_simple = Action('도망 모드', self.act_simple_defense_mode)
 
+        # --- 전투 상황 관련 Condition (타이머/아이템) ---
+        c_time_low = Condition('시간 임박?', self.cond_time_low)
+        c_time_high = Condition('시간 여유 있음?', self.cond_time_high)
+        c_item_available = Condition('아이템 있음?', self.cond_item_available)
 
-        # 검 모드: SwordPhaseTree (1단계 = simple 로직 래핑)
+        # --- 검 모드: 공격자 행동(AttackerBehavior) ---
 
-
-        # 공격자 행동(AttackerBehavior) – 일단은 simple 공격만
+        # 기본 추격/몰기 (지금 쓰던 단순 근접전)
         a_sword_chase = Action('검-추격/몰기', self.act_simple_attack_mode)
-        sword_attacker_behavior = Selector(
-            'SwordAttackerBehavior',
-            a_sword_chase,   # 나중에 TimeLowAllIn, ItemHunt, CreateAngle가 여기 추가될 예정
+
+        # 시간 임박 올인
+        a_rush_attack = Action('RushAttack 올인 공격', self.act_rush_attack)
+        time_low_all_in = Sequence(
+            'TimeLowAllIn',
+            c_time_low,
+            a_rush_attack,
+        )
+
+        # 여유 있을 때 아이템 먹으러 감
+        a_go_for_item = Action('아이템 먹으러 가기', self.act_go_for_item)
+        item_hunt = Sequence(
+            'ItemHunt',
+            c_time_high,
+            c_item_available,
+            a_go_for_item,
         )
 
         # 방어자 행동(DefenderBehavior) – 일단은 simple 도망만
@@ -88,6 +104,14 @@ class CharacterAI:
         )
 
         # 내가 들었을 때 = 공격자 트리
+        sword_attacker_behavior = Selector(
+            'SwordAttackerBehavior',
+            time_low_all_in,   # 1순위: 시간 임박하면 올인
+            item_hunt,         # 2순위: 여유 있고 아이템 있으면 아이템
+            # create_angle,    # 3순위: 나중에 각 만들기 심리전 붙일 자리
+            a_sword_chase,     # 마지막: 그냥 기본 추격/공격
+        )
+
         sword_attacker_tree = Sequence(
             'SwordAttackerTree',
             c_me_has_weapon,
@@ -380,6 +404,21 @@ class CharacterAI:
                 if isinstance(obj, (SpeedClockItem, AttackClockItem)):
                     return BehaviorTree.SUCCESS
         return BehaviorTree.FAIL
+
+    def _weapon_time_left(self):
+        #내가 들고 있는 무기의 남은 시간을 초 단위로 반환. 없으면 None.
+        me = self.me
+        if not getattr(me, 'weapon', None):
+            return None
+
+        pick = getattr(me, 'weapon_pick_time', 0.0)
+        limit = getattr(me, 'weapon_time_limit', 0.0)
+        if not pick or limit <= 0.0:
+            return None
+
+        now = get_time()
+        remain = limit - (now - pick)
+        return max(0.0, remain)
 
     # ------------------------------------------------------------------
     #  Action 함수들(정신없어서 나눠야겠으)
@@ -796,4 +835,36 @@ class CharacterAI:
         if not self._is_in_air() and now >= self.next_attack_time:
             self._tap_attack()
             self.next_attack_time = now + random.uniform(0.3, 0.6)  # 평소보다 훨씬 공격적
+        return BehaviorTree.SUCCESS
+
+    def act_go_for_item(self):
+
+        #화면에 떠 있는 아이템 중 가장 가까운 것 쪽으로 이동.
+        #(아직 점프는 몰루?)
+
+        me = self.me
+        if me is None:
+            return BehaviorTree.FAIL
+
+        target = None
+        min_dist = None
+
+        for layer in game_world.world:
+            for obj in layer:
+                if isinstance(obj, (SpeedClockItem, AttackClockItem)):
+                    dx = obj.x - me.x
+                    dist = abs(dx)
+                    if (min_dist is None) or (dist < min_dist):
+                        min_dist = dist
+                        target = obj
+
+        if target is None:
+            return BehaviorTree.FAIL
+
+        dx = target.x - me.x
+        if abs(dx) > 5.0:
+            self._set_move_dir(1 if dx > 0 else -1)
+        else:
+            # 거의 위에 도착했으면 멈춰서 충돌(먹기)을 기다림
+            self._set_move_dir(0)
         return BehaviorTree.SUCCESS
