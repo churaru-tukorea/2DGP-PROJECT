@@ -490,6 +490,8 @@ class CharacterAI:
 
             # [B] 점프 (Jump)
         elif seg.kind == 'jump':
+
+
             # 목표 플랫폼 정보
             dest_plat_name = seg.jump_template.to_platform
             platforms = scramble_nav.build_platforms_from_stage(self.stage)
@@ -563,34 +565,35 @@ class CharacterAI:
         if not self.scramble_plan or not self.scramble_plan.segments:
             return
 
-        # 플랫폼 정보
         platforms = scramble_nav.build_platforms_from_stage(self.stage)
+        idx = self.scramble_segment_index
 
-        if self.scramble_segment_index < len(self.scramble_plan.segments):
-            seg = self.scramble_plan.segments[self.scramble_segment_index]
+        if idx < len(self.scramble_plan.segments):
+            seg = self.scramble_plan.segments[idx]
 
-            # --------------------------------------------------
-            # [수정] 그릴 타겟 X 좌표 계산 로직 강화
-            # --------------------------------------------------
-            draw_target_x = seg.target_x
+            # --- 타겟 라인 그리기 로직 개선 ---
+            draw_target_x = None
 
-            # Walk 상태가 아니라 Jump 상태라서 target_x가 None이라면?
-            # -> 점프 발사대(takeoff)의 중앙을 타겟으로 잡는다.
-            if draw_target_x is None and seg.kind == 'jump' and seg.takeoff_range:
-                draw_target_x = (seg.takeoff_range[0] + seg.takeoff_range[1]) * 0.5
+            if seg.kind == 'walk':
+                draw_target_x = seg.target_x
+            elif seg.kind == 'jump':
+                # 점프 중일 때는 '다음 세그먼트(착지할 곳)'의 타겟을 미리 보여줌!
+                if idx + 1 < len(self.scramble_plan.segments):
+                    next_seg = self.scramble_plan.segments[idx + 1]
+                    if next_seg.kind == 'walk':
+                        draw_target_x = next_seg.target_x
 
-            # 이제 타겟 X가 있으면 무조건 선을 그린다 (화면 위아래로 길게)
+                # 다음 타겟이 없으면(마지막 점프), 발사대 중앙이라도 보여줌
+                if draw_target_x is None and seg.takeoff_range:
+                    draw_target_x = (seg.takeoff_range[0] + seg.takeoff_range[1]) * 0.5
+
             if draw_target_x is not None:
                 draw_line(draw_target_x, 0, draw_target_x, 1000, 0, 255, 0)
-            # --------------------------------------------------
+            # -------------------------------
 
-            # 점프 구간 박스 그리기 (기존 유지)
+            # 점프 발사대 박스 (기존 유지)
             if seg.kind == 'jump' and seg.takeoff_range:
                 x1, x2 = seg.takeoff_range
                 current_plat = platforms.get(seg.platform)
-                if current_plat:
-                    y = current_plat.T
-                    draw_rectangle(x1, y - 5, x2, y + 5)
-                else:
-                    y = self.me.y
-                    draw_rectangle(x1, y - 10, x2, y + 10)
+                y = current_plat.T if current_plat else self.me.y
+                draw_rectangle(x1, y - 5, x2, y + 5)
