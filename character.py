@@ -716,16 +716,24 @@ class Character:
             game_world.remove_object(self)
             return
 
-    def pickup_sword(self, other):
-            if self.weapon:  # 이미 들고 있으면 무시
-                return
-            #sword.set_equipped()
-            self.weapon = other
-            game_world.remove_collision_object_once(other, 'char:sword')
-            print('무기 장착 (월드 유지, EQUIPPED)')
-            other.attach_to(self)
-            other.state = 'EQUIPPED'
+    def pickup_sword(self, sword):
+        # 이미 무기 들고 있으면 무시
+        if getattr(self, 'weapon', None):
             return
+
+        # 이 캐릭터가 해당 검을 장비
+        self.weapon = sword
+        sword.state = 'EQUIPPED'
+        sword.owner = self
+        sword.stage = self.stage  # 캐릭터가 stage를 가지고 있다면
+
+        # 검을 캐릭터에 붙이는 기존 헬퍼가 있으면 사용
+        if hasattr(sword, 'attach_to'):
+            sword.attach_to(self)
+
+        # 공격 사거리 같은게 있으면 검 길이에 맞게 갱신
+        if hasattr(self, 'attack_range') and hasattr(sword, 'length'):
+            self.attack_range = sword.length
 
     def _current_frame_info(self):
         act = self.action  # 'idle','move','attack_fire','parry_hold','jump_up','jump_fall','jump_land'

@@ -6,7 +6,7 @@ from pico2d import (
     SDLK_LEFT, SDLK_RIGHT, SDLK_KP_1, SDLK_KP_2,
     get_time, get_canvas_width # <--- 추가
 )
-from sdl2 import SDLK_KP_2
+
 
 from behavior_tree import BehaviorTree, Selector, Action, Condition, Sequence
 import scramble_nav
