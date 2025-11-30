@@ -227,6 +227,9 @@ class Character:
         self.parry_active_until = None
         self.parry_cooldown_until = None
 
+        self.attack_cooldown_until = 0.0      # 평타(검) 쿨타임 끝나는 시각
+        self.spear_cooldown_until = 0.0       # 창 던지기 쿨타임 끝나는 시각
+
         self.IDLE = Idle(self)
         self.MOVE = Move(self)
         self.JUMP_UP = Jump_Up(self)
@@ -355,17 +358,39 @@ class Character:
                 return
 
         # 공격: 즉시 전이 X, 예약만 걸고 반환
+        # 공격: 즉시 전이 X, 예약만 걸고 반환
         if event.type == SDL_KEYDOWN and event.key == SDLK_k:
+            now = get_time()
+
+            if now < self.attack_cooldown_until:
+                return
+
+            if self.weapon is None:
+                return
+
             if not self.is_attack_reserved:
                 self.is_attack_reserved = True
-                self.attack_fire_time = get_time() + self.attack_charge_time
+                self.attack_fire_time = now + self.attack_charge_time
+                # 여기서 1~2초 정도 락 걸면 됨. 네가 원하는 값으로 조절해.
+                self.attack_cooldown_until = now + 1.2  # 예: 1.2초
             return  # 공격은 상태머신에 바로 전달하지 않음
 
-        if event.type == SDL_KEYDOWN and event.key == SDLK_i:  # 창
+        if event.type == SDL_KEYDOWN and event.key == SDLK_i:  # 창 던지기
+            now = get_time()
+
+            # 쿨타임 중이면 무시
+            if now < self.spear_cooldown_until:
+                return
+
+            # 무기 없으면 창 공격 예약 X
+            if self.weapon is None:
+                return
+
             if not self.is_spear_attack_reserved:
                 self.is_spear_attack_reserved = True
-                self.spear_attack_time = get_time() + self.attack_charge_time
-            return  # 창 공격도 즉시 상태 전이 안 함 (검과 동일한 동작)
+                self.spear_attack_time = now + self.attack_charge_time
+                self.spear_cooldown_until = now + 1.2
+            return  # 창 공격도 즉시 상태 전이 안 함
 
         # 나머지는 상태머신에 그대로 전달
         self.state_machine.handle_state_event(('INPUT', event))
