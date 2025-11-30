@@ -403,48 +403,41 @@ class CharacterAI:
         return BehaviorTree.SUCCESS
 
     def act_simple_attack_mode(self):
-        me, enemy = self.me, self.enemy
-        if enemy is None:
-            self._set_move_dir(0)
-            return BehaviorTree.SUCCESS
+        enemy = self.enemy
+        me = self.me
+
+        if enemy is None or me is None:
+            return BehaviorTree.FAIL
 
         dx = enemy.x - me.x
-        dy = enemy.y - me.y
-        distance = (dx * dx + dy * dy) ** 0.5
-
-        # 너무 멀리 떨어져 있으면 쫓아가기
-        attack_range = 220.0
-        approach_margin = 60.0  # 이 정도 여유 두고 멈추게
-
-        # 1) 공격 사거리 밖 → 적 방향으로 이동
-        if distance > attack_range:
-            dir_x = 1 if dx > 0 else -1
-            self._set_move_dir(dir_x)
-            return BehaviorTree.SUCCESS
-
-        # 2) 너무 붙었으면 살짝 거리 벌리기 (원하면 유지, 아니면 이 블록 통째로 삭제해도 됨)
-        if distance < attack_range - approach_margin:
-            if dx != 0:
-                dir_x = 1 if dx > 0 else -1
-                self._set_move_dir(-dir_x)
-            else:
-                self._set_move_dir(0)
-            return BehaviorTree.SUCCESS
-
-        # 3) 적당한 거리 → 멈추고 공격 시도
-        self._set_move_dir(0)
+        dist = abs(dx)
 
         now = get_time()
 
-        # 캐릭터 입장에서 공격이 가능한지 직접 체크
-        attack_ready = (
-                getattr(me, 'weapon', None) is not None
-                and not getattr(me, 'is_attack_reserved', False)
-                and now >= getattr(me, 'attack_cooldown_until', 0.0)
-        )
+        # -----------------------------
+        # 거리 기준 (필요하면 숫자는 나중에 조정)
+        # -----------------------------
+        attack_dist = 60.0  # 이 안까지 들어오면 공격 시도
+        start_move_dist = 120.0  # 이 이상 떨어져 있으면 무조건 쫓아가기
 
-        if attack_ready:
-            self._tap_attack()
+        # 1) 공격 시도: 충분히 붙었고, 쿨타임도 끝났으면
+        if dist <= attack_dist and now >= self.next_attack_time:
+            # 공중에서 이상하게 칼 휘두르는 거 방지
+            if not self._is_in_air():
+                # 멈추고 한 번 공격
+                self._set_move_dir(0)
+                self._tap_attack()
+                # 다음 공격까지 대기 시간 (너무 자주 휘두르지 않게)
+                self.next_attack_time = now + random.uniform(0.7, 1.2)
+                return BehaviorTree.SUCCESS
+
+        # 2) 아직 사거리 밖이면 → 무조건 적 쪽으로 이동
+        if dist > attack_dist:
+            move_dir = 1 if dx > 0 else -1
+            self._set_move_dir(move_dir)
+        else:
+            # 사거리 안인데 쿨만 기다리는 중이면 제자리에서 버티기
+            self._set_move_dir(0)
 
         return BehaviorTree.SUCCESS
 
