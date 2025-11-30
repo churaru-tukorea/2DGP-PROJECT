@@ -76,30 +76,39 @@ class CharacterAI:
         # --- 전투 상황 관련 Condition (타이머/아이템) ---
         c_time_low = Condition('시간 임박?', self.cond_time_low)
         c_time_high = Condition('시간 여유 있음?', self.cond_time_high)
-        c_item_available = Condition('아이템 있음?', self.cond_item_available)
+        c_item_avail = Condition('아이템 있음?', self.cond_item_available)
+
 
         # --- 검 모드: 공격자 행동(AttackerBehavior) ---
 
         # 기본 추격/몰기 (지금 쓰던 단순 근접전)
         a_sword_chase = Action('검-추격/몰기', self.act_simple_attack_mode)
+        a_go_item = Action('아이템 먹으러 가기', self.act_go_for_item)
+        a_rush = Action('RushAttack 올인 공격', self.act_rush_attack)  # 이미 짜뒀다면 그대로 사용, 없으면 나중에
+
 
         # 시간 임박 올인
-        a_rush_attack = Action('RushAttack 올인 공격', self.act_rush_attack)
         time_low_all_in = Sequence(
             'TimeLowAllIn',
             c_time_low,
-            a_rush_attack,
+            a_rush,
         )
 
-        # 여유 있을 때 아이템 먹으러 감
-        a_go_for_item = Action('아이템 먹으러 가기', self.act_go_for_item)
+        # 여유 있을 때 아이템 사냥
         item_hunt = Sequence(
             'ItemHunt',
             c_time_high,
-            c_item_available,
-            a_go_for_item,
+            c_item_avail,
+            a_go_item,
         )
 
+        # 최종 선택자
+        sword_attacker_behavior = Selector(
+            'SwordAttackerBehavior',
+            time_low_all_in,   # 1순위: 시간 임박하면 올인
+            item_hunt,         # 2순위: 여유 있고 먹을 만한 아이템 있으면
+            a_sword_chase,     # 3순위: 기본 추격/공격
+        )
         # 방어자 행동(DefenderBehavior) – 일단은 simple 도망만
         a_sword_flee = Action('검-도망', self.act_simple_defense_mode)
         sword_defender_behavior = Selector(
@@ -107,14 +116,6 @@ class CharacterAI:
             a_sword_flee,    # 나중에 EmergencyParry, RunAway, PrepareParry 붙일 자리
         )
 
-        # 내가 들었을 때 = 공격자 트리
-        sword_attacker_behavior = Selector(
-            'SwordAttackerBehavior',
-            time_low_all_in,   # 1순위: 시간 임박하면 올인
-            item_hunt,         # 2순위: 여유 있고 아이템 있으면 아이템
-            # create_angle,    # 3순위: 나중에 각 만들기 심리전 붙일 자리
-            a_sword_chase,     # 마지막: 그냥 기본 추격/공격
-        )
 
         sword_attacker_tree = Sequence(
             'SwordAttackerTree',
