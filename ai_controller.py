@@ -305,8 +305,10 @@ class CharacterAI:
         self._set_move_dir(0)
 
     def _reset_item_plan(self):
+        # 아이템 추적 관련 상태 전부 초기화
         self.item_plan = None
         self.item_segment_index = 0
+        self.item_target = None
 
     # 공격 예약 억제 헬퍼
     def _suppress_reserved_attack_this_frame(self):
@@ -990,12 +992,12 @@ class CharacterAI:
 
             # 높이 맞으면 X축 미세 조정 (먹기)
             dx = target.x - me.x
-            if abs(dx) > 10.0:
+            tol = self._pos_tolerance(base=10.0)
+
+            if abs(dx) > tol:
                 self._set_move_dir(1 if dx > 0 else -1)
             else:
                 self._set_move_dir(0)
-                # 여기서 SUCCESS를 리턴하면 BT가 끝나버릴 수 있으니,
-                # 먹을 때까지 계속 RUNNING으로 밀어붙이거나 SUCCESS로 넘김.
                 return BehaviorTree.SUCCESS
             return BehaviorTree.RUNNING
 
@@ -1005,7 +1007,9 @@ class CharacterAI:
         # [A] 걷기 (Walk)
         if seg.kind == 'walk':
             dist = seg.target_x - me.x
-            if abs(dist) <= 10.0:
+            tol = self._pos_tolerance(base=10.0)
+
+            if abs(dist) <= tol:
                 self._set_move_dir(0)
                 self.item_segment_index += 1
             else:
@@ -1016,11 +1020,17 @@ class CharacterAI:
         elif seg.kind == 'jump':
             tx1, tx2 = seg.takeoff_range
 
-            # [Step 1] 발사대까지 걷기 (무조건)
-            if not (tx1 <= me.x <= tx2):
-                if me.x < tx1:
+            # 발사대까지 걷기 (속도 보정 포함)
+            margin = self._pos_tolerance(base=5.0)
+            ex1 = tx1 - margin
+            ex2 = tx2 + margin
+
+            if not (ex1 <= me.x <= ex2):
+                # 그냥 tx1/tx2가 아니라 중심 기준으로 방향만 정해 줌
+                center = (tx1 + tx2) * 0.5
+                if me.x < center:
                     self._set_move_dir(1)
-                elif me.x > tx2:
+                else:
                     self._set_move_dir(-1)
                 return BehaviorTree.RUNNING
 
