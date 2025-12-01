@@ -998,6 +998,7 @@ class CharacterAI:
                 self._set_move_dir(1 if dx > 0 else -1)
             else:
                 self._set_move_dir(0)
+                self._reset_item_plan()
                 return BehaviorTree.SUCCESS
             return BehaviorTree.RUNNING
 
