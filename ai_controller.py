@@ -52,6 +52,9 @@ class CharacterAI:
         self.item_plan = None
         self.item_segment_index = 0
 
+
+        self.item_segment_start_time = 0.0
+
         self._build_bt()
 
     def _build_bt(self):
@@ -956,10 +959,10 @@ class CharacterAI:
         return BehaviorTree.SUCCESS
 
     def act_go_for_item(self):
-
-        # 아이템 먹으러 가는 동안에도 공격 예약은 끊어버린다
+        # -------------------------------------------------------
+        # 1. 기본 유효성 검사
+        # -------------------------------------------------------
         self._suppress_reserved_attack_this_frame()
-        # 1. 유효성 검사 (타겟 확인)
         me = self.me
         if me is None or self.stage is None:
             self._reset_item_plan()
@@ -970,12 +973,7 @@ class CharacterAI:
             self._reset_item_plan()
             return BehaviorTree.FAIL
 
-        # 착지 후 점프 홀드가 괜히 남아 있으면 여기서 한 번 더 끊어준다
-        if not self._is_in_air() and self.jump_end_time > 0.0:
-            self._send_key(SDLK_KP_1, False)
-            self.jump_end_time = 0.0
-
-        # 버프가 이미 켜졌는지 확인 (무기 로직에는 없는 아이템 전용 체크)
+        # [버프 체크] 이미 버프가 있으면 포기
         now = get_time()
         if isinstance(target, SpeedClockItem) and getattr(me, 'speed_buff_until', 0.0) > now:
             self._reset_item_plan()
@@ -984,14 +982,15 @@ class CharacterAI:
             self._reset_item_plan()
             return BehaviorTree.FAIL
 
-        # 2. 플랜 생성 (무기 로직과 동일)
+        # -------------------------------------------------------
+        # 2. 플랜 생성
+        # -------------------------------------------------------
         if self.item_plan is None:
             self.item_plan = scramble_nav.build_scramble_plan_to_point(
                 self.stage, me.x, me.y, target.x, target.y
             )
             self.item_segment_index = 0
 
-            # 실패 시 단순 이동 Fallback
             if self.item_plan is None or not self.item_plan.segments:
                 dx = target.x - me.x
                 if abs(dx) > 5.0:
@@ -1000,30 +999,36 @@ class CharacterAI:
                     self._set_move_dir(0)
                 return BehaviorTree.RUNNING
 
-        # 3. 플랜 완료 판정 (떨림 방지 80.0 적용)
+        # -------------------------------------------------------
+        # 3. 계획 완료(도착) 처리
+        # -------------------------------------------------------
         if self.item_segment_index >= len(self.item_plan.segments):
+            # [수정] 무기 로직처럼 80.0으로 넉넉하게
             if abs(me.y - target.y) > 80.0:
                 self._reset_item_plan()
                 return BehaviorTree.RUNNING
 
-            # 높이 맞으면 X축 미세 조정 (먹기)
             dx = target.x - me.x
+            # [수정] 무기 로직처럼 _pos_tolerance 사용
             tol = self._pos_tolerance(base=10.0)
 
             if abs(dx) > tol:
                 self._set_move_dir(1 if dx > 0 else -1)
             else:
                 self._set_move_dir(0)
-                self._reset_item_plan()
+                # 아이템 먹기는 성공 처리 (다음 틱에 사라지면 FAIL 되어 자연스럽게 종료)
                 return BehaviorTree.SUCCESS
             return BehaviorTree.RUNNING
 
-        # 4. 세그먼트 실행 (무기 로직과 100% 동일)
+        # -------------------------------------------------------
+        # 4. 세그먼트 실행
+        # -------------------------------------------------------
         seg = self.item_plan.segments[self.item_segment_index]
 
         # [A] 걷기 (Walk)
         if seg.kind == 'walk':
             dist = seg.target_x - me.x
+            # [수정] 무기 로직과 동일하게 _pos_tolerance 사용 (유연한 도착 판정)
             tol = self._pos_tolerance(base=10.0)
 
             if abs(dist) <= tol:
@@ -1037,14 +1042,14 @@ class CharacterAI:
         elif seg.kind == 'jump':
             tx1, tx2 = seg.takeoff_range
 
-            # 발사대까지 걷기 (속도 보정 포함)
+            # [수정] 무기 로직처럼 마진을 줘서 발사대 인식을 넉넉하게
             margin = self._pos_tolerance(base=5.0)
             ex1 = tx1 - margin
             ex2 = tx2 + margin
 
+            # [Step 1] 발사대까지 걷기 (범위 밖이면 무조건 걷기)
             if not (ex1 <= me.x <= ex2):
-                # 그냥 tx1/tx2가 아니라 중심 기준으로 방향만 정해 줌
-                center = (tx1 + tx2) * 0.5
+                center = (tx1 + tx2) * 0.5  # 중심을 향해 걷는다
                 if me.x < center:
                     self._set_move_dir(1)
                 else:
@@ -1058,14 +1063,18 @@ class CharacterAI:
 
             target_height = dest_plat.T if dest_plat else (me.y + 100.0)
 
-            # 특수 대각선 점프 판별 (1층 -> 2층)
+            # [대각선 판별] mid_top, 2층 갈 때는 대각선 점프
             is_hard_diagonal = False
-            if seg.platform in ['r3_L2', 'r3_R1'] and dest_plat_name in ['r2_L', 'r2_R']:
+            is_from_center_1f = seg.platform in ['r3_L2', 'r3_R1']
+            is_to_high_ground = dest_plat_name in ['r2_L', 'r2_R', 'mid_top']
+
+            if is_from_center_1f and is_to_high_ground:
                 is_hard_diagonal = True
 
             # (1) 착지 성공 확인
             is_falling = getattr(me, 'vy', 0) <= 0
             if not self._is_in_air() and dest_plat and is_falling:
+                # [수정] 60.0으로 넉넉하게
                 if abs(me.y - dest_plat.T) < 60.0:
                     self.jump_end_time = 0.0
                     self._send_key(SDLK_KP_1, False)
@@ -1075,10 +1084,15 @@ class CharacterAI:
 
             # (2) 공중 제어 (Air Control)
             if self._is_in_air() or (self.jump_end_time > 0 and get_time() < self.jump_end_time):
+
                 if is_hard_diagonal:
                     self._set_move_dir(seg.dir)
+                    # [수정] 대각선 점프는 공중에서도 점프 키 유지 (높이 확보)
+                    self._send_key(SDLK_KP_1, True)
+                    self.jump_end_time = get_time() + 0.1
                 else:
-                    safe_height = target_height + 50.0
+                    # 일반 점프 (엘리베이터)
+                    safe_height = target_height + 50.0  # 50.0 (무기 로직 동일)
                     if me.y < safe_height:
                         self._set_move_dir(0)
                         self._send_key(SDLK_KP_1, True)
