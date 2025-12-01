@@ -1126,10 +1126,10 @@ class CharacterAI:
 
             if is_drop:
                 # [CASE: 하강]
-                # 범위 체크를 하지 않습니다. 무조건 목표 방향(seg.dir)으로 걷습니다.
-                # 왜냐? 하강의 목표는 '떨어지는 것'이지 '특정 좌표에 서는 것'이 아니니까요.
-                # print(f"[Drop] Walking off edge... Dir:{seg.dir}")
-                self._set_move_dir(seg.dir)
+                # 발사대 범위 같은 건 무시하고, 이 세그먼트의 drop_dir 방향으로만 걷게 한다.
+                drop_dir = getattr(seg, 'drop_dir', self._compute_drop_dir(seg, platforms))
+                self._set_move_dir(drop_dir)
+                # 점프 키는 절대 누르지 않는다. 그냥 걸어가다가 바닥이 사라지면 중력으로 떨어짐.
                 return BehaviorTree.RUNNING
 
             else:
