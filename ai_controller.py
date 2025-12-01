@@ -1044,6 +1044,14 @@ class CharacterAI:
                     self.item_plan_fail_count = 0
                     return BehaviorTree.FAIL
 
+                # 여기서 단순 이동 후 바로 리턴 (중요)
+                dx = target.x - me.x
+                if abs(dx) > 5.0:
+                    self._set_move_dir(1 if dx > 0 else -1)
+                else:
+                    self._set_move_dir(0)
+                return BehaviorTree.RUNNING
+
         # -------------------------------------------------------
         # 3. 도착 확인
         # -------------------------------------------------------

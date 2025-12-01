@@ -207,14 +207,14 @@ JUMP_TEMPLATES: List[JumpTemplate] = [
     #  - r3_L2의 오른쪽 35% 구간(0.65~1.0)에서 오른쪽 위로 점프
     #  - mid_top의 왼쪽~중앙(0.0~0.45)에 착지
     JumpTemplate("r3_L2_to_mid_top", "r3_L2", "mid_top",
-                 0.45, 0.48,   # 이륙: r3_L2 중앙 쪽 (midtop에서 한 칸 떨어진 지점)
+                 0.60, 0.65,   # 이륙: r3_L2 중앙 쪽 (midtop에서 한 칸 떨어진 지점)
                  0.0, 0.45,    # 착지: mid_top 왼쪽~중앙
                  +1, 1.2),
 
     # 오른쪽: r3_R1(1층 중앙 오른쪽) → mid_top
     #  - 반대편 대칭: 0.55~0.65에서 점프
     JumpTemplate("r3_R1_to_mid_top", "r3_R1", "mid_top",
-                 0.50, 0.60,   # 이륙: r3_R1 중앙 쪽 (midtop에서 한 칸 떨어진 지점)
+                 0.25, 0.30,   # 이륙: r3_R1 중앙 쪽 (midtop에서 한 칸 떨어진 지점)
                  0.55, 1.0,    # 착지: mid_top 중앙~오른쪽
                  -1, 1.2),
 
