@@ -305,10 +305,18 @@ class CharacterAI:
         self._set_move_dir(0)
 
     def _reset_item_plan(self):
-        # 아이템 추적 관련 상태 전부 초기화
+            # 아이템 쫓아가는 플랜/인덱스 초기화
         self.item_plan = None
         self.item_segment_index = 0
-        self.item_target = None
+
+         # 1) 아이템 쫓다가 눌려 있던 좌우 방향키도 정리
+        self._set_move_dir(0)
+
+        # 2) 점프 자동 홀드가 남아 있으면 여기서도 정리
+        if self.jump_end_time > 0.0:
+        # AI가 누른 점프 키(SDLK_KP_1) 강제로 떼기
+                self._send_key(SDLK_KP_1, False)
+                self.jump_end_time = 0.0
 
     # 공격 예약 억제 헬퍼
     def _suppress_reserved_attack_this_frame(self):
@@ -477,7 +485,6 @@ class CharacterAI:
 
         me = self.me
         if me is None:
-            self.item_target = None
             self._reset_item_plan()
             return BehaviorTree.FAIL
 
@@ -487,29 +494,33 @@ class CharacterAI:
 
         for layer in game_world.world:
             for obj in layer:
-                # 1) 타입별로 버프 유효성 확인
+                # 타입 체크
                 if isinstance(obj, SpeedClockItem):
+                    # 이미 속도 버프 있으면 이 아이템은 건너뜀
                     if getattr(me, 'speed_buff_until', 0.0) > now:
-                        continue  # 이미 스피드 버프 중이면 무시
+                        continue
                 elif isinstance(obj, AttackClockItem):
+                    # 이미 공격 버프 있으면 건너뜀
                     if getattr(me, 'attack_buff_until', 0.0) > now:
-                        continue  # 이미 공격 버프 중이면 무시
+                        continue
                 else:
-                    continue  # 관심 없는 아이템
+                    continue  # 다른 오브젝트는 무시
 
-                # 2) 거리 기준으로 가장 가까운 후보 선택 (단순 x축 기준)
+                # 여기까지 왔으면 "먹을 의미가 있는 아이템" 후보
                 dx = obj.x - me.x
-                dist = abs(dx)
+                dy = obj.y - me.y
+                dist = abs(dx) + abs(dy)
+
                 if best is None or dist < best_dist:
                     best = obj
                     best_dist = dist
 
         if best is None:
-            self.item_target = None
-            self._reset_item_plan()
+            # 진짜로 먹을 의미 있는 아이템이 하나도 없음
+            self._reset_item_plan()  # 타겟/플랜 싹 비우기
             return BehaviorTree.FAIL
 
-        # 가장 가까운 '의미 있는' 아이템을 타겟으로 고정
+        # 먹을 만한 아이템 하나 발견
         self.item_target = best
         return BehaviorTree.SUCCESS
 
@@ -958,6 +969,11 @@ class CharacterAI:
         if target is None:
             self._reset_item_plan()
             return BehaviorTree.FAIL
+
+        # 착지 후 점프 홀드가 괜히 남아 있으면 여기서 한 번 더 끊어준다
+        if not self._is_in_air() and self.jump_end_time > 0.0:
+            self._send_key(SDLK_KP_1, False)
+            self.jump_end_time = 0.0
 
         # 버프가 이미 켜졌는지 확인 (무기 로직에는 없는 아이템 전용 체크)
         now = get_time()
