@@ -1095,9 +1095,10 @@ class CharacterAI:
             # 공중에 있거나, 점프 키를 누르고 있는 중이라면
             if self._is_in_air() or (self.jump_end_time > 0 and get_time() < self.jump_end_time):
                 if is_drop:
-                    # [하강 중]: 점프키 끄고, 계획된 방향(seg.dir)으로 계속 밈 (관성 유지)
+                    # 점프키 끄고, 드랍용 방향으로만 계속 민다
                     self._send_key(SDLK_KP_1, False)
-                    self._set_move_dir(seg.dir)
+                    drop_dir = getattr(seg, 'drop_dir', self._compute_drop_dir(seg, platforms))
+                    self._set_move_dir(drop_dir)
                 else:
                     # [점프 중]: 기존 로직 100% 유지 (대각선/수직 분기)
                     is_hard_diagonal = False
