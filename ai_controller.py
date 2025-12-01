@@ -1098,16 +1098,24 @@ class CharacterAI:
             hold_time = seg.jump_template.hold_time if seg.jump_template else 0.5
             is_drop = (hold_time < 0.1)
 
+
             # drop 세그먼트라면, 이 세그먼트 동안 쓸 가로 방향을 미리 계산해서 저장
             if is_drop and not hasattr(seg, 'drop_dir'):
                 seg.drop_dir = self._compute_drop_dir(seg, platforms)
+
+            # 착지 기준 플랫폼 결정
+            floor_plat = platforms.get('floor')
+            if is_drop and floor_plat is not None:
+                land_plat = floor_plat  # drop이면 무조건 floor 기준으로 착지 판단
+            else:
+                land_plat = dest_plat  # 점프면 기존대로 목표 플랫폼 기준
 
             # --- (1) 착지 확인 (Landing Check) ---
             # 하강이든 점프든, "땅에 닿았고 + 목표 높이 근처"면 성공
             is_falling = getattr(me, 'vy', 0) <= 0
             if not self._is_in_air() and is_falling:
-                if dest_plat and abs(me.y - dest_plat.T) < 60.0:
-                    # print(f"[Jump] Landed on {dest_plat_name}. Next.")
+                if land_plat and abs(me.y - land_plat.T) < 60.0:
+                    # print(f"[Jump] Landed. Next segment.")
                     self.jump_end_time = 0.0
                     self._send_key(SDLK_KP_1, False)
                     self._set_move_dir(0)
