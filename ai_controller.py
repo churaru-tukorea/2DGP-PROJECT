@@ -834,6 +834,12 @@ class CharacterAI:
             platforms = scramble_nav.build_platforms_from_stage(self.stage)
             dest_plat = platforms.get(dest_plat_name)
 
+            hold_time = seg.jump_template.hold_time if seg.jump_template else 0.5
+            is_drop = (hold_time < 0.1)
+
+            if is_drop and not hasattr(seg, 'drop_dir'):
+                seg.drop_dir = self._compute_drop_dir(seg, platforms)
+
 
 
             # 목표 높이 (없으면 내 머리 위 100)

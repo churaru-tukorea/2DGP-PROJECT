@@ -12,6 +12,7 @@ import game_framework
 import config
 from spear import Spear
 from ai_controller import CharacterAI
+import scramble_nav
 
 
 running = True
@@ -155,35 +156,40 @@ def update():
     # 아이템 스폰: 게임 시작 후 10초에 한 번, 아직 안 나왔을 때만
     if (not item_spawned) and item_spawn_time is not None and now >= item_spawn_time:
         cw = get_canvas_width()
-        # 화면 전체를 커버하는 큰 AABB로 질의
         query_bb = (0, -1000, cw, 1000)
         near = stage_colliders.query_boxes(query_bb, margin=0.0)
 
-        if near:
-            # (_, typ, L, B, R, T) 형태라고 가정 (char의 _solve_stage_collision과 동일)
-            _, typ, L, B, R, T = random.choice(near)
+        # 1) nav에서 무시하는 플랫폼(ceiling, left_wall, right_wall)은 스폰 후보에서 제외
+        candidates = [
+            info for info in near
+            if info[0] not in scramble_nav.IGNORED_PLATFORMS
+        ]
+
+        if candidates:
+            # (name, typ, L, B, R, T) 구조
+            name, typ, L, B, R, T = random.choice(candidates)
 
             item_w = 48
             item_h = 48
-            margin_x = item_w * 0.5 + 4  # 양 끝살짝 여유를 둠
+            margin_x = item_w * 0.5 + 4  # 양 끝 여유
 
             if R - L <= margin_x * 2:
                 spawn_x = (L + R) * 0.5
             else:
                 spawn_x = random.uniform(L + margin_x, R - margin_x)
 
-            # 아이템이 바닥에 딱 붙도록(센터 = 플랫폼 위 + 반높이)
-            spawn_y = T + item_h * 0.2
+            # 아이템이 플랫폼 바로 위에 보이도록 (센터 = T + 반높이 정도)
+            spawn_y = T + item_h * 0.5
 
-            # 두 종류 중 하나를 랜덤 선택
             if random.random() < 0.5:
                 item = SpeedClockItem(spawn_x, spawn_y)
             else:
                 item = AttackClockItem(spawn_x, spawn_y)
 
             game_world.add_object(item, 2)
-            # char:item 그룹의 반대편(아이템 쪽)에 등록
             game_world.add_collision_pair('char:item', None, item)
+
+        # 후보가 없든 있든, 다음 스폰 타이밍은 갱신
         item_spawn_time = now + item_spawn_interval
 
 
