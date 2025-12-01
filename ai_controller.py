@@ -1075,6 +1075,10 @@ class CharacterAI:
             hold_time = seg.jump_template.hold_time if seg.jump_template else 0.5
             is_drop = (hold_time < 0.1)
 
+            # drop 세그먼트라면, 이 세그먼트 동안 쓸 가로 방향을 미리 계산해서 저장
+            if is_drop and not hasattr(seg, 'drop_dir'):
+                seg.drop_dir = self._compute_drop_dir(seg, platforms)
+
             # --- (1) 착지 확인 (Landing Check) ---
             # 하강이든 점프든, "땅에 닿았고 + 목표 높이 근처"면 성공
             is_falling = getattr(me, 'vy', 0) <= 0
