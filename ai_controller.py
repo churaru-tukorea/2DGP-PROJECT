@@ -360,6 +360,35 @@ class CharacterAI:
 
         return base * ratio
 
+    def _compute_drop_dir(self, seg, platforms):
+
+        #drop 세그먼트에서 쓸 가로 방향을 결정한다.
+        #- 1순위: jump_template.dir 이 -1 또는 +1 이면 그걸 신뢰
+        #- 2순위: landing_range 중앙을 기준으로 현재 위치와 비교
+        #- 3순위: 화면 중앙을 기준으로 안쪽(센터) 방향으로 이동
+
+        # 템플릿에 명시된 dir이 -1/1이면 그대로 사용
+        if seg.jump_template and seg.jump_template.dir in (-1, 1):
+            return seg.jump_template.dir
+
+        # landing_range가 있다면 그 중앙으로 향하게
+        if seg.landing_range:
+            lnd_x1, lnd_x2 = seg.landing_range
+            lnd_cx = 0.5 * (lnd_x1 + lnd_x2)
+
+            if self.me.x < lnd_cx - 1.0:
+                return +1
+            elif self.me.x > lnd_cx + 1.0:
+                return -1
+            # 거의 중앙이면 굳이 안 움직여도 되지만,
+            # 그래도 떨어지려면 어느 쪽이든 하나 방향을 정해줘야 하니까,
+            # 아래 fallback으로 넘긴다.
+
+        # fallback: 화면 중앙 쪽으로 이동 (벽 쪽에 붙어 죽는 상황 방지)
+        from pico2d import get_canvas_width
+        mid = get_canvas_width() * 0.5
+        return +1 if self.me.x < mid else -1
+
 
     # ------------------------------------------------------------------
     #  Condition 함수들(정신없어서 나눠야겠으)
