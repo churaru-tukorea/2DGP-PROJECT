@@ -52,6 +52,8 @@ class CharacterAI:
         self.item_plan = None
         self.item_segment_index = 0
 
+        self.item_plan_fail_count = 0
+
 
         self.item_segment_start_time = 0.0
 
@@ -542,6 +544,7 @@ class CharacterAI:
                     best = obj
                     best_dist = dist
 
+
         if best is None:
             # print("[Cond-Item] No valid item found.")
             self._reset_item_plan()
@@ -1028,12 +1031,18 @@ class CharacterAI:
             # 실패 시 fallback
             if self.item_plan is None or not self.item_plan.segments:
                 print("[Item-Nav] Plan Failed. Simple Move.")
-                dx = target.x - me.x
-                if abs(dx) > 5.0:
-                    self._set_move_dir(1 if dx > 0 else -1)
-                else:
-                    self._set_move_dir(0)
-                return BehaviorTree.RUNNING
+
+                # 실패 카운트 증가
+                fail_count = getattr(self, 'item_plan_fail_count', 0) + 1
+                self.item_plan_fail_count = fail_count
+
+                # N프레임 이상 계속 실패하면 이 타겟은 포기
+                if fail_count > 30:
+                    print("[Item-Nav] Plan keeps failing. Drop this item target.")
+                    self._reset_item_plan()
+                    self.item_target = None
+                    self.item_plan_fail_count = 0
+                    return BehaviorTree.FAIL
 
         # -------------------------------------------------------
         # 3. 도착 확인
