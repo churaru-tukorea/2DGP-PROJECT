@@ -571,6 +571,7 @@ class CharacterAI:
         dx = enemy.x - me.x
         dist = abs(dx)
 
+
         # 떨림 방지: 접근 시작 거리와 정지 거리를 다르게 설정
         start_chase_range = 100.0  # 이보다 멀어지면 접근 시작
         stop_chase_range = 60.0  # 이보다 가까워지면 정지
