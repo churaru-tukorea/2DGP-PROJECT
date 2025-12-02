@@ -584,6 +584,7 @@ class CharacterAI:
             # 이미 움직이는 중이라면, 목표지점(60)까지 확실히 도달할 때까지 멈추지 않음
             if dist > stop_chase_range:
                 should_move = True
+
         else:
             # 멈춰있는 상태라면, 충분히 멀어졌을 때(100) 비로소 움직임 시작
             if dist > start_chase_range:
