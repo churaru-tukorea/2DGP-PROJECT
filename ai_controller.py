@@ -273,8 +273,9 @@ class CharacterAI:
 
         # 점프 키 홀드 해제
         if self.jump_end_time > 0 and now >= self.jump_end_time:
+            self._dbg(f"JUMP_TIMER: expire at t={now:.2f}, jump_end={self.jump_end_time:.2f}")
             self._send_key(SDLK_KP_1, False)
-            self.jump_end_time = 0.0
+            self._set_jump_timer(0.0, "update_expire")
 
     def _send_key(self, sdl_key, is_down: bool): # 특정 키를 입력한다는 헬퍼를 보내버리는
         event_type = SDL_KEYDOWN if is_down else SDL_KEYUP
@@ -309,18 +310,20 @@ class CharacterAI:
                 self.right_down = False
 
     def _tap_jump(self, hold_duration=0.2):
-        # 이미 공중에 있거나, 점프 키를 누르는 중이면 또 누르지 않음
-        if self._is_in_air() or self.jump_end_time > 0:
-            self._dbg(f"_tap_jump: ignored (in_air={self._is_in_air()}, jump_end={self.jump_end_time:.2f})")
+        in_air = self._is_in_air()
+        now = get_time()
+
+        if in_air:
+            self._dbg(f"_tap_jump: SKIP (already in air), nav_mode={self.nav_mode}, y={self.me.y:.1f}")
             return
 
-        # 현재 상태 이름도 찍어보면 더 좋음
-        cur_state_name = getattr(getattr(self.me, 'state_machine', None), 'cur_state_name', None)
-        self._dbg(f"_tap_jump: press jump (hold={hold_duration:.2f}), state={cur_state_name}")
+        if self.jump_end_time > 0.0 and now < self.jump_end_time:
+            self._dbg(f"_tap_jump: SKIP (already holding), jump_end={self.jump_end_time:.2f}, now={now:.2f}")
+            return
 
+        self._dbg(f"_tap_jump: PRESS jump (hold={hold_duration:.2f}), nav_mode={self.nav_mode}, y={self.me.y:.1f}")
         self._send_key(SDLK_KP_1, True)
-        # 인자로 받은 시간만큼 누르고 있게 설정 (기본값 0.2)
-        self.jump_end_time = get_time() + hold_duration
+        self._set_jump_timer(now + hold_duration, "tap_jump")
 
 
     def _tap_attack(self):
@@ -375,7 +378,7 @@ class CharacterAI:
         if self.jump_end_time > 0.0:
         # AI가 누른 점프 키(SDLK_KP_1) 강제로 떼기
                 self._send_key(SDLK_KP_1, False)
-                self.jump_end_time = 0.0
+                self._set_jump_timer(0.0, "reset_item_plan")
 
     # 공격 예약 억제 헬퍼
     def _suppress_reserved_attack_this_frame(self):
@@ -466,6 +469,8 @@ class CharacterAI:
         # 공중에서는 새로운 네비 모드로 진입 금지 (버그 예방)
         if self._is_in_air() and new_mode != 'NONE':
             return BehaviorTree.FAIL
+        self._dbg(
+            f"SWITCH_NAV: {self.nav_mode} -> {new_mode}, in_air={self._is_in_air()}, jump_end={self.jump_end_time:.2f}")
 
         # 이전 모드 정리
         if self.nav_mode == 'SCRAMBLE':
@@ -1268,7 +1273,7 @@ class CharacterAI:
             if not self._is_in_air() and is_falling:
                 if land_plat and abs(me.y - land_plat.T) < 60.0:
                     # print(f"[Jump] Landed. Next segment.")
-                    self.jump_end_time = 0.0
+                    self._set_jump_timer(0.0, "reset_item_plan")
                     self._send_key(SDLK_KP_1, False)
                     self._set_move_dir(0)
                     self.item_segment_index += 1
@@ -1352,13 +1357,7 @@ class CharacterAI:
     #  - 그 이후 적이 움직이는 건 고려하지 않음
     def act_chase_enemy_nav(self):
 
-        plan = self.chase_plan
 
-        #self._dbg(
-        #    f"CHASE: seg_index={self.chase_segment_index}/{len(plan.segments)}, "
-        #    f"kind={plan.segments[self.chase_segment_index].kind}, "
-        #    f"nav_mode={self.nav_mode}"
-        #)
         #플랫폼 네비게이션으로 적 쫓기 (아이템 네비와 거의 같은 패턴)
         me = self.me
         enemy = self.enemy
@@ -1515,11 +1514,13 @@ class CharacterAI:
 
         # 7-b. jump 세그먼트: 아이템 네비와 최대한 같은 패턴
         if seg.kind == 'jump':
-            self._dbg(
-                f"CHASE-jump: x={me.x:.1f}, y={me.y:.1f}, "
-                f"takeoff_range={seg.takeoff_range}, dir={seg.dir}, "
-                f"in_air={self._is_in_air()}, jump_end={self.jump_end_time:.2f}"
-            )
+            #self._dbg(
+             #   f"CHASE-jump: seg={self.chase_segment_index}, "
+             #   #f"from={seg.from_name}, to={seg.to_name}, "
+             #   f"dir={seg.dir}, tx1={seg.tx1:.1f}, tx2={seg.tx2:.1f}, "
+             #   f"x={me.x:.1f}, y={me.y:.1f}, in_air={self._is_in_air()}, "
+             #   f"jump_end={self.jump_end_time:.2f}"
+            #)
             # 발사 구간 설정
             if seg.takeoff_range:
                 tx1, tx2 = seg.takeoff_range
