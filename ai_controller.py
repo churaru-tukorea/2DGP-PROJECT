@@ -437,6 +437,13 @@ class CharacterAI:
         self.nav_mode = new_mode
         return BehaviorTree.SUCCESS
 
+    def _build_platforms(self):
+        #현재 stage_colliders 기준 플랫폼 딕셔너리 생성.
+        if not self.stage:
+            return {}
+        return scramble_nav.build_platforms_from_stage(self.stage)
+
+
 
     # ------------------------------------------------------------------
     #  Condition 함수들(정신없어서 나눠야겠으)
