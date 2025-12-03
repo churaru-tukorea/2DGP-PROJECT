@@ -1128,6 +1128,14 @@ class CharacterAI:
                 draw_rectangle(x1, y - 5, x2, y + 5)
 
     def act_rush_attack(self):
+        me_plat = self._get_platform_for(self.me)
+        enemy_plat = self._get_platform_for(self.enemy)
+
+        # 적이 다른 플랫폼이면 RushAttack 의미 없음 → FAIL 반환해서 아래 CrossPlatformChase를 쓰게 하기
+        if me_plat is None or enemy_plat is None:
+            return BehaviorTree.FAIL
+        if me_plat.name != enemy_plat.name:
+            return BehaviorTree.FAIL
 
         #시간 임박 시 사용하는 올인 공격 모드.
         #항상 적 방향으로 전진
