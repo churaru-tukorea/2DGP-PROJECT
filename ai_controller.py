@@ -511,6 +511,10 @@ class CharacterAI:
     def _dbg(self, msg: str): #아오 디버그시치
         print(f"[AI-DBG] {msg}")
 
+    def _set_jump_timer(self, new_value: float, reason: str):
+        self._dbg(f"JUMP_TIMER: {self.jump_end_time:.2f} -> {new_value:.2f} ({reason}, nav_mode={self.nav_mode})")
+        self.jump_end_time = new_value
+
 
 
     # ------------------------------------------------------------------
@@ -1350,11 +1354,11 @@ class CharacterAI:
 
         plan = self.chase_plan
 
-        self._dbg(
-            f"CHASE: seg_index={self.chase_segment_index}/{len(plan.segments)}, "
-            f"kind={plan.segments[self.chase_segment_index].kind}, "
-            f"nav_mode={self.nav_mode}"
-        )
+        #self._dbg(
+        #    f"CHASE: seg_index={self.chase_segment_index}/{len(plan.segments)}, "
+        #    f"kind={plan.segments[self.chase_segment_index].kind}, "
+        #    f"nav_mode={self.nav_mode}"
+        #)
         #플랫폼 네비게이션으로 적 쫓기 (아이템 네비와 거의 같은 패턴)
         me = self.me
         enemy = self.enemy
