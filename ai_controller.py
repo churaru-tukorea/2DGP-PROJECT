@@ -413,6 +413,30 @@ class CharacterAI:
         # 이동 멈춤
         self._set_move_dir(0)
 
+    def _switch_nav_mode(self, new_mode: str):
+
+        #네비게이션 모드 전환.
+        #- 공중에서는 SCRAMBLE/ITEM/CHASE 같은 '새 네비'로 진입하지 않는다.
+        #- NONE 으로 내려가는 건 언제든 허용.
+
+        if new_mode == self.nav_mode:
+            return BehaviorTree.SUCCESS
+
+        # 공중에서는 새로운 네비 모드로 진입 금지 (버그 예방)
+        if self._is_in_air() and new_mode != 'NONE':
+            return BehaviorTree.FAIL
+
+        # 이전 모드 정리
+        if self.nav_mode == 'SCRAMBLE':
+            self._reset_scramble_plan()
+        elif self.nav_mode == 'ITEM':
+            self._reset_item_plan()
+        elif self.nav_mode == 'CHASE':
+            self._reset_chase_plan()
+
+        self.nav_mode = new_mode
+        return BehaviorTree.SUCCESS
+
 
     # ------------------------------------------------------------------
     #  Condition 함수들(정신없어서 나눠야겠으)
