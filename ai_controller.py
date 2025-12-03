@@ -230,13 +230,28 @@ class CharacterAI:
 
         self.bt = BehaviorTree(root)
     def update(self):
-
+        # 매 프레임 공격 예약 허용 플래그 초기화
         if hasattr(self.me, 'allow_reserved_attack'):
             self.me.allow_reserved_attack = True
 
+        now = get_time()
+
+        # 적 점프 감지 (지상 -> 공중 전환 순간 기록)
+        if self.enemy is not None and self.stage is not None:
+            enemy_in_air = self._is_actor_in_air(self.enemy)
+        else:
+            enemy_in_air = False
+
+        if enemy_in_air and not self.enemy_prev_in_air:
+            # 방금 지상에서 점프한 순간
+            self.enemy_last_jump_detect_time = now
+        self.enemy_prev_in_air = enemy_in_air
+
+        # BT 실행
         self.bt.run()
 
-        if self.jump_end_time > 0 and get_time() >= self.jump_end_time:
+        # 점프 키 홀드 해제
+        if self.jump_end_time > 0 and now >= self.jump_end_time:
             self._send_key(SDLK_KP_1, False)
             self.jump_end_time = 0.0
 
