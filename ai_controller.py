@@ -245,6 +245,16 @@ class CharacterAI:
         if hasattr(self.me, 'allow_reserved_attack'):
             self.me.allow_reserved_attack = True
 
+        me_plat = self._get_platform_for(self.me) if self.me else None
+        enemy_plat = self._get_platform_for(self.enemy) if self.enemy else None
+
+        self._dbg(
+            f"TICK: nav_mode={self.nav_mode} "
+            f"me=({self.me.x:.1f},{self.me.y:.1f},{me_plat.name if me_plat else 'None'}) "
+            f"enemy=({self.enemy.x:.1f},{self.enemy.y:.1f},{enemy_plat.name if enemy_plat else 'None'}) "
+            f"in_air={self._is_in_air()} jump_end={self.jump_end_time:.2f}"
+        )
+
         now = get_time()
 
         # 적 점프 감지 (지상 -> 공중 전환 순간 기록)
@@ -301,7 +311,12 @@ class CharacterAI:
     def _tap_jump(self, hold_duration=0.2):
         # 이미 공중에 있거나, 점프 키를 누르는 중이면 또 누르지 않음
         if self._is_in_air() or self.jump_end_time > 0:
+            self._dbg(f"_tap_jump: ignored (in_air={self._is_in_air()}, jump_end={self.jump_end_time:.2f})")
             return
+
+        # 현재 상태 이름도 찍어보면 더 좋음
+        cur_state_name = getattr(getattr(self.me, 'state_machine', None), 'cur_state_name', None)
+        self._dbg(f"_tap_jump: press jump (hold={hold_duration:.2f}), state={cur_state_name}")
 
         self._send_key(SDLK_KP_1, True)
         # 인자로 받은 시간만큼 누르고 있게 설정 (기본값 0.2)
@@ -663,10 +678,16 @@ class CharacterAI:
     # Condition: 적이 다른 플랫폼에 있는가?
     def cond_enemy_on_different_platform(self):
         if self.stage is None or self.me is None or self.enemy is None:
+            self._dbg("cond_enemy_on_diff: stage/me/enemy None → FAIL")
             return BehaviorTree.FAIL
 
         me_plat = self._get_platform_for(self.me)
         enemy_plat = self._get_platform_for(self.enemy)
+
+        self._dbg(
+            f"cond_enemy_on_diff: me_plat={me_plat.name if me_plat else 'None'}, "
+            f"enemy_plat={enemy_plat.name if enemy_plat else 'None'}"
+        )
 
         # 플랫폼 정보를 못 찾으면 플랫폼 네비를 쓰지 않는다.
         if me_plat is None or enemy_plat is None:
@@ -674,10 +695,12 @@ class CharacterAI:
 
         # 다른 플랫폼일 때만 CHASE 시도
         if me_plat.name != enemy_plat.name:
+            self._dbg("cond_enemy_on_diff: DIFFERENT → SUCCESS")
             return BehaviorTree.SUCCESS
 
         # 같은 플랫폼이면, 혹시 남아 있던 CHASE 상태 정리
         if self.nav_mode == 'CHASE':
+            self._dbg("cond_enemy_on_diff: SAME while CHASE → switch NONE")
             self._switch_nav_mode('NONE')
         return BehaviorTree.FAIL
 
@@ -1324,13 +1347,15 @@ class CharacterAI:
     #  - 적이 다른 플랫폼에 올라간 "그 시점의 위치"를 타깃으로 고정
     #  - 그 이후 적이 움직이는 건 고려하지 않음
     def act_chase_enemy_nav(self):
-        """플랫폼 네비게이션으로 적 쫓기 (아이템 네비와 거의 같은 패턴)
 
-        - cond_enemy_on_different_platform() 이 먼저 검사된 상태에서만 들어온다고 가정.
-        - nav_mode == 'CHASE' 상태일 때만 플랜 유지.
-        - 공중에서 새로운 CHASE 시작 금지(_switch_nav_mode가 막아줌).
-        - chase_plan / chase_segment_index / chase_target_snapshot 만 사용 (아이템/스크램블과 완전 분리).
-        """
+        plan = self.chase_plan
+
+        self._dbg(
+            f"CHASE: seg_index={self.chase_segment_index}/{len(plan.segments)}, "
+            f"kind={plan.segments[self.chase_segment_index].kind}, "
+            f"nav_mode={self.nav_mode}"
+        )
+        #플랫폼 네비게이션으로 적 쫓기 (아이템 네비와 거의 같은 패턴)
         me = self.me
         enemy = self.enemy
 
@@ -1462,6 +1487,8 @@ class CharacterAI:
         # 7-a. walk 세그먼트: target_x 까지 수평 이동
         if seg.kind == 'walk':
             if seg.target_x is None:
+                self._dbg(f"CHASE-walk: x={me.x:.1f}, target_x={seg.target_x}, "
+                          f"dir={1 if seg.target_x and seg.target_x > me.x else -1}")
                 # 방어 코드: target_x 가 없으면 그냥 다음 세그먼트로 넘어간다
                 self.chase_segment_index += 1
                 self.chase_segment_start_time = now
@@ -1484,6 +1511,11 @@ class CharacterAI:
 
         # 7-b. jump 세그먼트: 아이템 네비와 최대한 같은 패턴
         if seg.kind == 'jump':
+            self._dbg(
+                f"CHASE-jump: x={me.x:.1f}, y={me.y:.1f}, "
+                f"takeoff_range={seg.takeoff_range}, dir={seg.dir}, "
+                f"in_air={self._is_in_air()}, jump_end={self.jump_end_time:.2f}"
+            )
             # 발사 구간 설정
             if seg.takeoff_range:
                 tx1, tx2 = seg.takeoff_range
@@ -1500,17 +1532,22 @@ class CharacterAI:
             if (not self._is_in_air()) and (not jumping_now):
                 # 발사 위치까지 수평 이동
                 if me.x < tx1 - tol:
+                    self._dbg(f"CHASE-jump: move RIGHT to takeoff (me.x={me.x:.1f}, tx1={tx1})")
                     self._set_move_dir(1)
                     return BehaviorTree.RUNNING
                 if me.x > tx2 + tol:
+                    self._dbg(f"CHASE-jump: move LEFT to takeoff (me.x={me.x:.1f}, tx2={tx2})")
                     self._set_move_dir(-1)
                     return BehaviorTree.RUNNING
 
+                self._dbg("CHASE-jump: in takeoff_range, call _tap_jump()")
                 # takeoff_range 안에 들어왔다 → 점프 시작
+
                 hold = getattr(seg.jump_template, 'hold_time', 0.5) if seg.jump_template else 0.5
 
                 # drop 전용 템플릿(hold_time <= 0)은 점프 키 안 쓰고 그냥 떨어지게 둔다
                 if hold > 0.0:
+                    self._dbg("CHASE-jump: in takeoff_range, call _tap_jump()")
                     self._tap_jump(hold_duration=hold)
 
                 # 점프/드롭 중에는 템플릿이 정한 dir 방향으로 밀어준다
@@ -1519,10 +1556,12 @@ class CharacterAI:
 
             # (2) 점프/드롭 중: 수평 방향 고정
             if self._is_in_air() or jumping_now:
+                self._dbg(f"CHASE-jump: in air, keep dir={seg.dir}")
                 self._set_move_dir(seg.dir or 0)
                 return BehaviorTree.RUNNING
 
             # (3) 여기까지 왔다는 건 방금 착지했다는 뜻 → 다음 세그먼트로
+            self._dbg("CHASE-jump: landing detected, go next segment")
             self._set_move_dir(0)
             self.chase_segment_index += 1
             self.chase_segment_start_time = now
