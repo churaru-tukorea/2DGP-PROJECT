@@ -493,6 +493,9 @@ class CharacterAI:
 
         return True
 
+    def _dbg(self, msg: str): #아오 디버그시치
+        print(f"[AI-DBG] {msg}")
+
 
 
     # ------------------------------------------------------------------
@@ -1144,9 +1147,9 @@ class CharacterAI:
             self._reset_item_plan()
             return BehaviorTree.FAIL
 
-        # -------------------------------------------------------
+
         # 2. 플랜 생성
-        # -------------------------------------------------------
+
         if self.item_plan is None:
             print(f"[Item-Nav] New Plan -> ({target.x:.1f}, {target.y:.1f})")
             self.item_plan = scramble_nav.build_scramble_plan_to_point(
@@ -1178,9 +1181,7 @@ class CharacterAI:
                     self._set_move_dir(0)
                 return BehaviorTree.RUNNING
 
-        # -------------------------------------------------------
         # 3. 도착 확인
-        # -------------------------------------------------------
         if self.item_segment_index >= len(self.item_plan.segments):
             if abs(me.y - target.y) > 80.0:
                 print("[Item-Nav] Height Mismatch at End. Reset.")
@@ -1196,9 +1197,7 @@ class CharacterAI:
                 self._set_move_dir(0)
                 return BehaviorTree.SUCCESS
 
-        # -------------------------------------------------------
         # 4. 세그먼트 실행
-        # -------------------------------------------------------
         seg = self.item_plan.segments[self.item_segment_index]
         platforms = scramble_nav.build_platforms_from_stage(self.stage)
 
@@ -1316,4 +1315,220 @@ class CharacterAI:
 
                 return BehaviorTree.RUNNING
 
+        return BehaviorTree.RUNNING
+
+
+
+    # Action: 플랫폼 네비로 적 추격
+    #  - cond_enemy_on_different_platform 이 TRUE 일 때만 호출
+    #  - 적이 다른 플랫폼에 올라간 "그 시점의 위치"를 타깃으로 고정
+    #  - 그 이후 적이 움직이는 건 고려하지 않음
+    def act_chase_enemy_nav(self):
+        """플랫폼 네비게이션으로 적 쫓기 (아이템 네비와 거의 같은 패턴)
+
+        - cond_enemy_on_different_platform() 이 먼저 검사된 상태에서만 들어온다고 가정.
+        - nav_mode == 'CHASE' 상태일 때만 플랜 유지.
+        - 공중에서 새로운 CHASE 시작 금지(_switch_nav_mode가 막아줌).
+        - chase_plan / chase_segment_index / chase_target_snapshot 만 사용 (아이템/스크램블과 완전 분리).
+        """
+        me = self.me
+        enemy = self.enemy
+
+        # 0. 기본 방어: 스테이지/적/나 없으면 바로 실패
+        if self.stage is None or me is None or enemy is None:
+            # 혹시 CHASE 모드로 남아 있으면 정리
+            if self.nav_mode == 'CHASE':
+                self._switch_nav_mode('NONE')
+            return BehaviorTree.FAIL
+
+        now = get_time()
+
+        # 네비 중에는 공격 예약 막기 (아이템 쫓기랑 동일한 안전장치)
+        self._suppress_reserved_attack_this_frame()
+
+        # 1. CHASE 모드 진입 시도
+        #  - 공중에서는 새로운 네비 시작 금지
+        #  - 이미 CHASE라면 그대로 계속 진행
+        if self._switch_nav_mode('CHASE') == BehaviorTree.FAIL:
+            # 공중에서 모드 전환 시도 등 → 그냥 이번 틱은 네비 안 함
+            return BehaviorTree.FAIL
+
+        # 2. 현재 플랫폼 정보 확인
+        me_plat = self._get_platform_for(me)
+        enemy_plat = self._get_platform_for(enemy)
+
+        # 플랫폼 정보를 못 얻으면 네비 불가 → CHASE 포기
+        if me_plat is None or enemy_plat is None:
+            self._switch_nav_mode('NONE')
+            return BehaviorTree.FAIL
+
+        # 혹시 같은 플랫폼이면 굳이 네비 할 필요 없음 → 성공으로 보고 종료
+        if me_plat.name == enemy_plat.name:
+            self._switch_nav_mode('NONE')
+            return BehaviorTree.SUCCESS
+
+        # 3. 최초 진입: 적 위치 스냅샷 고정
+        #    (아이템 쫓을 때 item_target 고정하는 느낌으로)
+        if self.chase_target_snapshot is None:
+            self.chase_target_snapshot = SimpleNamespace(
+                x=enemy.x,
+                y=enemy.y,
+                platform_name=enemy_plat.name,
+                time=now,
+            )
+            self.chase_plan = None
+            self.chase_segment_index = 0
+            self.chase_segment_start_time = now
+
+        target = self.chase_target_snapshot
+
+        # 스냅샷이 뭔가 꼬여 있으면 정리 후 실패
+        if target is None:
+            self._switch_nav_mode('NONE')
+            return BehaviorTree.FAIL
+
+        # 4. 플랜이 없으면 한 번만 생성 시도
+        if self.chase_plan is None or not getattr(self.chase_plan, 'segments', None):
+            plan = scramble_nav.build_scramble_plan_to_point(
+                self.stage,
+                me.x, me.y,
+                target.x, target.y,
+            )
+
+            # 4-1. 완전히 플랜 생성 실패 → 간단한 수평 추격 또는 포기
+            if (plan is None) or plan.is_empty():
+                dx = target.x - me.x
+                dy = target.y - me.y
+                tol_x = self._pos_tolerance(base=10.0)
+                tol_y = 120.0  # 아이템 네비에서 쓰던 정도의 대충 허용치
+
+                # 수직 차이가 크지 않으면, 그냥 수평으로라도 다가가 본다
+                if abs(dx) > tol_x and abs(dy) <= tol_y:
+                    move_dir = 1 if dx > 0 else -1
+                    self._set_move_dir(move_dir)
+                    # CHASE 모드는 유지하되, 여전히 네비 중이므로 RUNNING
+                    return BehaviorTree.RUNNING
+
+                # 정말로 경로가 안 나온다 → CHASE 포기
+                self._set_move_dir(0)
+                self._switch_nav_mode('NONE')
+                return BehaviorTree.FAIL
+
+            # 4-2. 플랜 생성 성공
+            self.chase_plan = plan
+            self.chase_segment_index = 0
+            self.chase_segment_start_time = now
+
+        # 여기까지 오면 self.chase_plan 은 유효한 ScramblePlan 이라고 가정
+        plan = self.chase_plan
+
+        # 5. 플랜 마지막 세그먼트까지 갔는지 체크
+        if self.chase_segment_index >= len(plan.segments):
+            # 도착했는데, 정말 같은 플랫폼인지 한 번 더 확인
+            me_plat = self._get_platform_for(me)
+            enemy_plat = self._get_platform_for(enemy)
+
+            if me_plat and enemy_plat and me_plat.name == enemy_plat.name:
+                # 같은 플랫폼에 올라왔으면 추격 성공
+                self._set_move_dir(0)
+                self._switch_nav_mode('NONE')
+                # 타겟/플랜도 함께 정리
+                self.chase_plan = None
+                self.chase_target_snapshot = None
+                self.chase_segment_index = 0
+                return BehaviorTree.SUCCESS
+
+            # 아직도 다른 플랫폼이라면 → 이 플랜은 더 이상 의미 없다 → 포기
+            self._set_move_dir(0)
+            self._switch_nav_mode('NONE')
+            self.chase_plan = None
+            self.chase_target_snapshot = None
+            self.chase_segment_index = 0
+            return BehaviorTree.FAIL
+
+        # 6. 스턱 타임아웃: 한 세그먼트에서 너무 오래 멈춰 있으면 포기
+        if (now - self.chase_segment_start_time) > self.chase_stuck_timeout:
+            # 세그먼트가 너무 오래 진행 안 됨 → 플랜 포기
+            self._set_move_dir(0)
+            self._switch_nav_mode('NONE')
+            self.chase_plan = None
+            self.chase_target_snapshot = None
+            self.chase_segment_index = 0
+            return BehaviorTree.FAIL
+
+        # 7. 현재 세그먼트 실행 (아이템 네비와 동일한 패턴)
+        seg = plan.segments[self.chase_segment_index]
+
+        # 7-a. walk 세그먼트: target_x 까지 수평 이동
+        if seg.kind == 'walk':
+            if seg.target_x is None:
+                # 방어 코드: target_x 가 없으면 그냥 다음 세그먼트로 넘어간다
+                self.chase_segment_index += 1
+                self.chase_segment_start_time = now
+                return BehaviorTree.RUNNING
+
+            target_x = seg.target_x
+            tol = self._pos_tolerance(base=10.0)
+            dx = target_x - me.x
+
+            if abs(dx) <= tol:
+                # 거의 도착 → 다음 세그먼트로
+                self._set_move_dir(0)
+                self.chase_segment_index += 1
+                self.chase_segment_start_time = now
+            else:
+                move_dir = 1 if dx > 0 else -1
+                self._set_move_dir(move_dir)
+
+            return BehaviorTree.RUNNING
+
+        # 7-b. jump 세그먼트: 아이템 네비와 최대한 같은 패턴
+        if seg.kind == 'jump':
+            # 발사 구간 설정
+            if seg.takeoff_range:
+                tx1, tx2 = seg.takeoff_range
+                takeoff_mid = 0.5 * (tx1 + tx2)
+            else:
+                tx1 = tx2 = takeoff_mid = me.x
+
+            tol = self._pos_tolerance(base=5.0)
+
+            # "점프 키 누르고 있는 중" 판정 (아이템 네비와 동일한 패턴)
+            jumping_now = (self.jump_end_time > 0.0 and now < self.jump_end_time)
+
+            # (1) 아직 점프 전: 지상 + 점프 키 안 누른 상태
+            if (not self._is_in_air()) and (not jumping_now):
+                # 발사 위치까지 수평 이동
+                if me.x < tx1 - tol:
+                    self._set_move_dir(1)
+                    return BehaviorTree.RUNNING
+                if me.x > tx2 + tol:
+                    self._set_move_dir(-1)
+                    return BehaviorTree.RUNNING
+
+                # takeoff_range 안에 들어왔다 → 점프 시작
+                hold = getattr(seg.jump_template, 'hold_time', 0.5) if seg.jump_template else 0.5
+
+                # drop 전용 템플릿(hold_time <= 0)은 점프 키 안 쓰고 그냥 떨어지게 둔다
+                if hold > 0.0:
+                    self._tap_jump(hold_duration=hold)
+
+                # 점프/드롭 중에는 템플릿이 정한 dir 방향으로 밀어준다
+                self._set_move_dir(seg.dir or 0)
+                return BehaviorTree.RUNNING
+
+            # (2) 점프/드롭 중: 수평 방향 고정
+            if self._is_in_air() or jumping_now:
+                self._set_move_dir(seg.dir or 0)
+                return BehaviorTree.RUNNING
+
+            # (3) 여기까지 왔다는 건 방금 착지했다는 뜻 → 다음 세그먼트로
+            self._set_move_dir(0)
+            self.chase_segment_index += 1
+            self.chase_segment_start_time = now
+            return BehaviorTree.RUNNING
+
+        # 7-c. 알 수 없는 kind → 방어 코드: 그냥 다음 세그먼트로 넘긴다
+        self.chase_segment_index += 1
+        self.chase_segment_start_time = now
         return BehaviorTree.RUNNING
