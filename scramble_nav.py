@@ -149,7 +149,7 @@ JUMP_TEMPLATES: List[JumpTemplate] = [
     # [Left] 바닥 -> r3_L1 (왼쪽 구석)
     # r3_L1이 대략 0.2에서 끝나므로, 0.22~0.26(바로 옆)에서 뜀
     JumpTemplate("floor_to_r3_L1_side", "floor", "r3_L1",
-                 0.12, 0.16,  # 플랫폼 바로 오른쪽 옆
+                 0.16, 0.20,  # 플랫폼 바로 오른쪽 옆
                  0.5, 0.9,
                  -1,  # 왼쪽으로 점프
                  0.5),
@@ -207,7 +207,7 @@ JUMP_TEMPLATES: List[JumpTemplate] = [
     #  - r3_L2의 오른쪽 35% 구간(0.65~1.0)에서 오른쪽 위로 점프
     #  - mid_top의 왼쪽~중앙(0.0~0.45)에 착지
     JumpTemplate("r3_L2_to_mid_top", "r3_L2", "mid_top",
-                 0.60, 0.65,   # 이륙: r3_L2 중앙 쪽 (midtop에서 한 칸 떨어진 지점)
+                 0.70, 0.75,   # 이륙: r3_L2 중앙 쪽 (midtop에서 한 칸 떨어진 지점)
                  0.0, 0.45,    # 착지: mid_top 왼쪽~중앙
                  +1, 1.2),
 
