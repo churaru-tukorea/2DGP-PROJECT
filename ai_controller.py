@@ -1150,8 +1150,12 @@ class CharacterAI:
         dist = abs(dx)
         now = get_time()
 
-        # 항상 적 방향으로 밀어붙이기
-        move_dir = 1 if dx > 0 else -1
+        # 너무 가까우면 굳이 방향을 계속 바꾸지 않는다.
+        if dist < 10.0:
+            move_dir = 0  # 멈추기
+        else:
+            move_dir = 1 if dx > 0 else -1
+
         self._set_move_dir(move_dir)
 
         # 너무 멀면 그냥 쫓기만 한다
@@ -1365,6 +1369,10 @@ class CharacterAI:
     #  - 적이 다른 플랫폼에 올라간 "그 시점의 위치"를 타깃으로 고정
     #  - 그 이후 적이 움직이는 건 고려하지 않음
     def act_chase_enemy_nav(self):
+        self._dbg(
+            f"CHASE: enter, plan={'None' if self.chase_plan is None else 'EXISTS'}, "
+            f"nav_mode={self.nav_mode}"
+        )
 
 
         #플랫폼 네비게이션으로 적 쫓기 (아이템 네비와 거의 같은 패턴)
@@ -1523,49 +1531,54 @@ class CharacterAI:
 
         # 7-b. jump 세그먼트: 아이템 네비와 최대한 같은 패턴
         if seg.kind == 'jump':
-            #self._dbg(
-             #   f"CHASE-jump: seg={self.chase_segment_index}, "
-             #   #f"from={seg.from_name}, to={seg.to_name}, "
-             #   f"dir={seg.dir}, tx1={seg.tx1:.1f}, tx2={seg.tx2:.1f}, "
-             #   f"x={me.x:.1f}, y={me.y:.1f}, in_air={self._is_in_air()}, "
-             #   f"jump_end={self.jump_end_time:.2f}"
-            #)
-            # 발사 구간 설정
+            # [추가 1] Drop 여부 및 방향 확인
+            # hold_time이 거의 없으면 Drop으로 간주
+            hold = getattr(seg.jump_template, 'hold_time', 0.5) if seg.jump_template else 0.5
+            is_drop = (hold < 0.1)
+
+            if is_drop:
+                # Drop 방향이 없으면 기존 헬퍼 함수로 계산 (아이템 로직과 동일)
+                if not hasattr(seg, 'drop_dir'):
+                    platforms = scramble_nav.build_platforms_from_stage(self.stage)
+                    seg.drop_dir = self._compute_drop_dir(seg, platforms)
+                target_dir = seg.drop_dir
+            else:
+                target_dir = seg.dir or 0
+
+            # 발사 구간 설정 (기존 코드 유지)
             if seg.takeoff_range:
                 tx1, tx2 = seg.takeoff_range
-                takeoff_mid = 0.5 * (tx1 + tx2)
             else:
-                tx1 = tx2 = takeoff_mid = me.x
+                tx1 = tx2 = me.x
 
             tol = self._pos_tolerance(base=5.0)
-
-            # "점프 키 누르고 있는 중" 판정 (아이템 네비와 동일한 패턴)
             jumping_now = (self.jump_end_time > 0.0 and now < self.jump_end_time)
 
-            # (1) 아직 점프 전: 지상 + 점프 키 안 누른 상태
+            # (1) 지상 동작 (아직 점프 전)
             if (not self._is_in_air()) and (not jumping_now):
+
+                # [추가 2] Drop이면 발사대 범위 맞추지 말고, 계산된 방향으로 무조건 걷기!
+                # (이게 없어서 dir=0일 때 멈춰있던 것임)
+                if is_drop:
+                    self._set_move_dir(target_dir)
+                    return BehaviorTree.RUNNING
+
+                # --- 이 아래는 기존 Jump 로직 유지 ---
+
                 # 발사 위치까지 수평 이동
                 if me.x < tx1 - tol:
-                    self._dbg(f"CHASE-jump: move RIGHT to takeoff (me.x={me.x:.1f}, tx1={tx1})")
                     self._set_move_dir(1)
                     return BehaviorTree.RUNNING
                 if me.x > tx2 + tol:
-                    self._dbg(f"CHASE-jump: move LEFT to takeoff (me.x={me.x:.1f}, tx2={tx2})")
                     self._set_move_dir(-1)
                     return BehaviorTree.RUNNING
 
-                self._dbg("CHASE-jump: in takeoff_range, call _tap_jump()")
-                # takeoff_range 안에 들어왔다 → 점프 시작
-
-                hold = getattr(seg.jump_template, 'hold_time', 0.5) if seg.jump_template else 0.5
-
-                # drop 전용 템플릿(hold_time <= 0)은 점프 키 안 쓰고 그냥 떨어지게 둔다
+                # 발사대 도착 -> 점프 시작
                 if hold > 0.0:
-                    self._dbg("CHASE-jump: in takeoff_range, call _tap_jump()")
                     self._tap_jump(hold_duration=hold)
 
-                # 점프/드롭 중에는 템플릿이 정한 dir 방향으로 밀어준다
-                self._set_move_dir(seg.dir or 0)
+                # 점프/드롭 중에는 정해진 방향으로 민다
+                self._set_move_dir(target_dir)
                 return BehaviorTree.RUNNING
 
             # (2) 점프/드롭 중: 수평 방향 고정
