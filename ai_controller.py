@@ -374,11 +374,12 @@ class CharacterAI:
          # 1) 아이템 쫓다가 눌려 있던 좌우 방향키도 정리
         self._set_move_dir(0)
 
-        # 2) 점프 자동 홀드가 남아 있으면 여기서도 정리
-        if self.jump_end_time > 0.0:
-        # AI가 누른 점프 키(SDLK_KP_1) 강제로 떼기
-                self._send_key(SDLK_KP_1, False)
-                self._set_jump_timer(0.0, "reset_item_plan")
+        # jump 타이머는 "아이템 네비 모드"일 때만 건드린다.
+        # (CHASE 중에는 여기서 점프를 끊으면 안 됨)
+
+        if getattr(self, "nav_mode", None) == "ITEM" and self.jump_end_time > 0.0:
+            self._send_key(SDLK_KP_1, False)
+            self._set_jump_timer(0.0, "reset_item_plan")
 
     # 공격 예약 억제 헬퍼
     def _suppress_reserved_attack_this_frame(self):
