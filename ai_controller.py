@@ -123,13 +123,20 @@ class CharacterAI:
         c_enemy_on_diff_platform = Condition('적이 다른 플랫폼에 있음?', self.cond_enemy_on_different_platform)
         a_chase_enemy_nav = Action('플랫폼 네비로 적 추격', self.act_chase_enemy_nav)
 
+        cross_platform_chase = Sequence(
+            'CrossPlatformChase',
+            c_enemy_on_diff_platform,
+            a_chase_enemy_nav,
+        )
+
 
         # 최종 선택자
         sword_attacker_behavior = Selector(
             'SwordAttackerBehavior',
-            time_low_all_in,   # 1순위: 시간 임박하면 올인
-            item_hunt,         # 2순위: 여유 있고 먹을 만한 아이템 있으면
-            a_sword_chase,     # 3순위: 기본 추격/공격
+            time_low_all_in,
+            item_hunt,
+            cross_platform_chase,
+            a_sword_chase,
         )
         # 방어자 행동(DefenderBehavior) – 일단은 simple 도망만
         a_sword_flee = Action('검-도망', self.act_simple_defense_mode)
