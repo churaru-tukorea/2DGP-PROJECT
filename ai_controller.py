@@ -657,6 +657,27 @@ class CharacterAI:
         self.item_target = best
         return BehaviorTree.SUCCESS
 
+    # Condition: 적이 다른 플랫폼에 있는가?
+    def cond_enemy_on_different_platform(self):
+        if self.stage is None or self.me is None or self.enemy is None:
+            return BehaviorTree.FAIL
+
+        me_plat = self._get_platform_for(self.me)
+        enemy_plat = self._get_platform_for(self.enemy)
+
+        # 플랫폼 정보를 못 찾으면 플랫폼 네비를 쓰지 않는다.
+        if me_plat is None or enemy_plat is None:
+            return BehaviorTree.FAIL
+
+        # 다른 플랫폼일 때만 CHASE 시도
+        if me_plat.name != enemy_plat.name:
+            return BehaviorTree.SUCCESS
+
+        # 같은 플랫폼이면, 혹시 남아 있던 CHASE 상태 정리
+        if self.nav_mode == 'CHASE':
+            self._switch_nav_mode('NONE')
+        return BehaviorTree.FAIL
+
     # ------------------------------------------------------------------
     #  Action 함수들(정신없어서 나눠야겠으)
     # ------------------------------------------------------------------
