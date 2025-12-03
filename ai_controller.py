@@ -54,6 +54,19 @@ class CharacterAI:
 
         self.item_plan_fail_count = 0
 
+        self.nav_mode = 'NONE'
+
+        # CHASE 전용 경로/세그먼트 상태
+        self.chase_plan = None
+        self.chase_segment_index = 0
+        self.chase_target_snapshot = None  # SimpleNamespace(x, y, platform_name, time)
+        self.chase_segment_start_time = 0.0
+        self.chase_stuck_timeout = 2.0     # 한 세그먼트에서 최대 허용 시간(초)
+
+        # 적 점프 감지용 상태 (공격 모드에서 점프 따라하기용)
+        self.enemy_prev_in_air = False
+        self.enemy_last_jump_detect_time = 0.0
+
 
         self.item_segment_start_time = 0.0
 
