@@ -404,6 +404,15 @@ class CharacterAI:
         mid = get_canvas_width() * 0.5
         return +1 if self.me.x < mid else -1
 
+    def _reset_chase_plan(self):   #플랫폼 추격용 경로/세그먼트 상태만 정리
+
+        self.chase_plan = None
+        self.chase_segment_index = 0
+        self.chase_target_snapshot = None
+        self.chase_segment_start_time = 0.0
+        # 이동 멈춤
+        self._set_move_dir(0)
+
 
     # ------------------------------------------------------------------
     #  Condition 함수들(정신없어서 나눠야겠으)
