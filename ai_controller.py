@@ -450,6 +450,23 @@ class CharacterAI:
         platforms = self._build_platforms()
         return scramble_nav.find_platform_under_point(platforms, actor.x, actor.y)
 
+    def _is_actor_in_air(self, actor):   #self._is_in_air 와 같은 로직을, 임의 플레이어에 대해 사용.
+        if actor is None:
+            return False
+
+        if actor.y <= getattr(actor, 'ground_y', 90) + 10:
+            return False
+
+        if self.stage:
+            platforms = self._build_platforms()
+            for name, p in platforms.items():
+                if p.L - 60 <= actor.x <= p.R + 60:
+                    diff = abs(actor.y - p.T)
+                    if diff < 60.0:
+                        return False
+
+        return True
+
 
 
     # ------------------------------------------------------------------
