@@ -443,6 +443,13 @@ class CharacterAI:
             return {}
         return scramble_nav.build_platforms_from_stage(self.stage)
 
+    def _get_platform_for(self, actor):
+        #상대가 서 있는 플랫폼 반환.
+        if not self.stage or actor is None:
+            return None
+        platforms = self._build_platforms()
+        return scramble_nav.find_platform_under_point(platforms, actor.x, actor.y)
+
 
 
     # ------------------------------------------------------------------
