@@ -120,6 +120,10 @@ class CharacterAI:
             a_go_item,
         )
 
+        c_enemy_on_diff_platform = Condition('적이 다른 플랫폼에 있음?', self.cond_enemy_on_different_platform)
+        a_chase_enemy_nav = Action('플랫폼 네비로 적 추격', self.act_chase_enemy_nav)
+
+
         # 최종 선택자
         sword_attacker_behavior = Selector(
             'SwordAttackerBehavior',
