@@ -70,6 +70,20 @@ class CharacterAI:
 
         self.item_segment_start_time = 0.0
 
+        # 도망 전용 독립 변수 (기존 네비와 완벽 격리)
+        self.flee_plan = None
+        self.flee_segment_index = 0
+        self.flee_state = 'NONE'  # 'NONE', 'EDGE_RUN', 'PLAN_RUN', 'WAIT'
+        self.flee_target_platform = None
+        self.flee_escape_dir = 0
+
+        # 리액션(패링/점프) 전용 변수
+        self.last_seen_attack_fire_time = None
+        self.reaction_triggered = False
+        self.reaction_lock_until = 0.0
+        self.current_reaction_mode = None  # 'PARRY', 'JUMP', 'HIT'
+
+
         self._build_bt()
 
     def _build_bt(self):
