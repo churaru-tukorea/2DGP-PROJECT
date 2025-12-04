@@ -38,6 +38,8 @@ class CharacterAI:
 
 
         self.jump_end_time = 0.0
+        self.jump_nav_mode = 'NONE'   # 이 점프가 어떤 nav_mode에서 시작됐는지
+
 
         self.stage = None                 # StageColliders
         self.weapon_getter = None         # 현재 "줍으러 갈" 무기를 돌려주는 함수
@@ -337,6 +339,7 @@ class CharacterAI:
         in_air = self._is_in_air()
         now = get_time()
 
+
         if in_air:
             self._dbg(f"_tap_jump: SKIP (already in air), nav_mode={self.nav_mode}, y={self.me.y:.1f}")
             return
@@ -348,6 +351,7 @@ class CharacterAI:
         self._dbg(f"_tap_jump: PRESS jump (hold={hold_duration:.2f}), nav_mode={self.nav_mode}, y={self.me.y:.1f}")
         self._send_key(SDLK_KP_1, True)
         self._set_jump_timer(now + hold_duration, "tap_jump")
+        self.jump_nav_mode = self.nav_mode  # 이렇게 기억하자
 
 
     def _tap_attack(self):
@@ -534,6 +538,9 @@ class CharacterAI:
     def _set_jump_timer(self, new_value: float, reason: str):
         self._dbg(f"JUMP_TIMER: {self.jump_end_time:.2f} -> {new_value:.2f} ({reason}, nav_mode={self.nav_mode})")
         self.jump_end_time = new_value
+        # 더 이상 유효한 점프가 아니면 nav_mode 정보도 초기화
+        if self.jump_end_time <= 0.0:
+            self.jump_nav_mode = 'NONE'
 
     def _reset_flee_plan(self): #이게 기조가 바뀔 때마다 reset하는 플랜이기 때문에...
         self.flee_plan = None
