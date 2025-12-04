@@ -1737,6 +1737,7 @@ class CharacterAI:
             if me_plat and enemy_plat and me_plat.name == enemy_plat.name:
                 dist = abs(me.x - enemy.x)
                 if dist < 200.0:
+                    print(f"[FLEE-START] 적 접근 감지! Dist:{dist:.1f}. EDGE_RUN 시작.")
                     self.flee_state = 'EDGE_RUN'
                     # 적 반대 방향
                     self.flee_escape_dir = -1 if enemy.x > me.x else 1
@@ -1755,22 +1756,30 @@ class CharacterAI:
                 # 도착 확인 (Tolerance 사용)
                 tol = self._pos_tolerance(base=10.0)
                 dist = target_x - me.x
-
+                print(
+                    f"[EDGE] Plat:{me_plat.name} | MeX:{me.x:.1f} Target:{target_x:.1f} | Dist:{dist:.1f} Tol:{tol:.1f}")
                 if abs(dist) <= tol:
+                    print(f"   -> [ARRIVED] 도착! PLAN_RUN으로 전환.")
                     self._set_move_dir(0)
                     self.flee_state = 'PLAN_RUN'  # 도착 -> 다음 플랜 준비
                     self.flee_plan = None  # 플랜 재생성 트리거
                 else:
-                    self._set_move_dir(1 if dist > 0 else -1)
+                    move = 1 if dist > 0 else -1
+                    print(f"   -> [MOVING] Dir:{move}")
+                    self._set_move_dir(move)
             else:
+                in_air = self._is_in_air()
+                print(f"[EDGE-LOST] Plat is None! InAir:{in_air}")
                 # 플랫폼 정보가 'None'이 됨 (경계선 넘음)
                 if not self._is_in_air():
+                    print(f"   -> [EDGE-DETECTED] 땅에는 있음. 끝으로 간주. PLAN_RUN 전환.")
                     # "땅에는 있는데 플랫폼 이름은 모름" == "아슬아슬한 끝에 도착함"
                     # -> 성공으로 간주하고 다음 단계 진행
                     self._set_move_dir(0)
                     self.flee_state = 'PLAN_RUN'
                     self.flee_plan = None
                 else:
+                    print(f"   -> [FAIL] 진짜 떨어짐. 리셋.")
                     # 진짜로 공중에 떴음 (떨어짐) -> 리셋
                     self._reset_flee_plan()
                     return BehaviorTree.FAIL
@@ -1789,8 +1798,17 @@ class CharacterAI:
             # 공중일 때는 절대 경로를 새로 짜지 않는다.
             if (self.flee_plan is None) and (not in_air):
 
+                # 여기서 me_plat이 없으면 WAIT로 보내는데,
+                # 만약 바로 WAIT로 갔다가 다시 EDGE_RUN으로 오면 그게 떨림의 원인임.
+                if not me_plat:
+                    print(f"[PLAN] Plat None (Edge). 대기 상태(WAIT)로 전환.")
+                    self.flee_state = 'WAIT'
+                    self._set_move_dir(0)
+                    return BehaviorTree.RUNNING
+
                 # 동적 플랫폼 선정 (현재 플랫폼 제외)
                 target_name = self._get_random_flee_target(me_plat.name if me_plat else "")
+                print(f"[PLAN] 새 타겟 선정: {target_name}")
 
                 # 목적지 좌표 계산
                 platforms = self._build_platforms()
@@ -1808,6 +1826,7 @@ class CharacterAI:
 
                 # 실패 시 대기 상태로
                 if not self.flee_plan or not self.flee_plan.segments:
+                    print(f"[PLAN] 경로 생성 실패. WAIT로.")
                     self.flee_state = 'WAIT'
                     self._set_move_dir(0)
                     return BehaviorTree.RUNNING
