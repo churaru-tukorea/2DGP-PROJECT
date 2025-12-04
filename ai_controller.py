@@ -494,6 +494,8 @@ class CharacterAI:
             self._reset_item_plan()
         elif self.nav_mode == 'CHASE':
             self._reset_chase_plan()
+        elif self.nav_mode == 'FLEE':
+            self._reset_flee_plan()
 
         self.nav_mode = new_mode
         return BehaviorTree.SUCCESS
@@ -534,6 +536,31 @@ class CharacterAI:
     def _set_jump_timer(self, new_value: float, reason: str):
         self._dbg(f"JUMP_TIMER: {self.jump_end_time:.2f} -> {new_value:.2f} ({reason}, nav_mode={self.nav_mode})")
         self.jump_end_time = new_value
+
+    def _reset_flee_plan(self): #이게 기조가 바뀔 때마다 reset하는 플랜이기 때문에...
+        self.flee_plan = None
+        self.flee_segment_index = 0
+        self.flee_state = 'NONE'
+        self.flee_target_platform = None
+        self._set_move_dir(0)
+
+    def _get_random_flee_target(self, current_plat_name): # stage_colliders 정보를 이용해 랜덤한 목적지 플랫폼 선정
+        if not self.stage: return None
+
+        # 제외할 플랫폼 이름들 (벽, 천장 등)
+        IGNORED = {'ceiling', 'left_wall', 'right_wall', current_plat_name}
+
+        candidates = []
+        # stage_colliders.screen_boxes : [(name, type, L, B, R, T), ...]
+        for name, typ, L, B, R, T in self.stage.get_screen_boxes():
+            if typ != 'SOLID': continue
+            if name in IGNORED: continue
+            candidates.append(name)
+
+        if not candidates:
+            return 'floor'  # 갈 곳 없으면 바닥으로
+
+        return random.choice(candidates)
 
 
 
@@ -1612,3 +1639,66 @@ class CharacterAI:
         self.chase_segment_index += 1
         self.chase_segment_start_time = now
         return BehaviorTree.RUNNING
+
+    def act_emergency_react(self):
+        enemy = self.enemy
+        now = get_time()
+
+        # 1. 적 정보 읽기
+        fire_time = getattr(enemy, 'attack_fire_time', None)
+        is_reserved = getattr(enemy, 'is_attack_reserved', False)
+
+        # 공격이 없으면 상태 리셋 후 FAIL
+        if not is_reserved or fire_time is None:
+            self.last_seen_attack_fire_time = None
+            self.reaction_triggered = False
+            return BehaviorTree.FAIL
+
+        # 2. 새로운 공격 식별 (공격 ID가 바뀔 때만 확률 추첨)
+        if fire_time != self.last_seen_attack_fire_time:
+            self.last_seen_attack_fire_time = fire_time
+            self.reaction_triggered = False
+
+            # 30% 패링 / 30% 점프 / 40% 맞기
+            r = random.random()
+            if r < 0.3:
+                self.current_reaction_mode = 'PARRY'
+            elif r < 0.6:
+                self.current_reaction_mode = 'JUMP'
+            else:
+                self.current_reaction_mode = 'HIT'
+
+        # 3. 타이밍 윈도우 (공격 전 0.25초 ~ 공격 후 0.05초)
+        remain = fire_time - now
+        REACT_EARLY = 0.25
+        REACT_LATE = -0.05
+
+        if not (REACT_LATE <= remain <= REACT_EARLY):
+            return BehaviorTree.FAIL  # 아직 반응할 때가 아님
+
+        # 4. 이미 반응했으면 잠금 유지하고 SUCCESS (도망 로직 정지)
+        if self.reaction_triggered:
+            self._set_move_dir(0)
+            return BehaviorTree.SUCCESS
+
+        # 5. 최초 행동 실행
+        mode = self.current_reaction_mode
+
+        if mode == 'PARRY':
+            self._set_move_dir(0)
+            self._send_key(SDLK_KP_3, True)  # 패링 키 Down
+            self._send_key(SDLK_KP_3, False)  # 패링 키 Up
+            self.reaction_lock_until = now + 0.3  # 0.3초간 이동 불가
+
+        elif mode == 'JUMP':
+            # 공중이면 점프 입력 안 함 (이미 늦음 or 피함)
+            if not self._is_in_air():
+                self._set_move_dir(0)
+                self._tap_jump(0.3)  # 0.3초 숏 점프
+                self.reaction_lock_until = now + 0.3
+
+        elif mode == 'HIT':
+            self._set_move_dir(0)  # 얌전히 맞기
+
+        self.reaction_triggered = True
+        return BehaviorTree.SUCCESS
