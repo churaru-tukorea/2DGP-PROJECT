@@ -1434,12 +1434,11 @@ class CharacterAI:
         # 네비 중에는 공격 예약 막기 (아이템 쫓기랑 동일한 안전장치)
         self._suppress_reserved_attack_this_frame()
 
-        # [추가] 공격/패링 상태면 강제로 MOVE로 깨우기
-        #  → 위에서 FSM에 BREAK_TO_MOVE 전이 추가해놨다는 전제
-        try:
-            me.state_machine.handle_state_event(('BREAK_TO_MOVE', None))
-        except Exception:
-            pass  # state_machine 없으면 조용히 무시
+        if not self._is_in_air() and self.nav_mode != 'CHASE':
+            try:
+                me.state_machine.handle_state_event(('BREAK_TO_MOVE', None))
+            except Exception:
+                pass
 
         # 1. CHASE 모드 진입 시도
         #  - 공중에서는 새로운 네비 시작 금지
