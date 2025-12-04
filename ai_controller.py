@@ -739,11 +739,14 @@ class CharacterAI:
             f"enemy_plat={enemy_plat.name if enemy_plat else 'None'}"
         )
 
-        # 플랫폼 정보를 못 찾으면 플랫폼 네비를 쓰지 않는다.
+        # 이미 CHASE 플랜이 돌아가고 있고, 그 와중에 공중(plat=None)이면 계속 CHASE 허용
         if me_plat is None or enemy_plat is None:
+            if self.nav_mode == 'CHASE' and self.chase_plan is not None:
+                self._dbg("cond_enemy_on_diff: me or enemy plat None, but CHASE in progress → keep chasing (SUCCESS)")
+                return BehaviorTree.SUCCESS
             return BehaviorTree.FAIL
 
-        # 다른 플랫폼일 때만 CHASE 시도
+        # 다른 플랫폼이면 CHASE 진입/유지
         if me_plat.name != enemy_plat.name:
             self._dbg("cond_enemy_on_diff: DIFFERENT → SUCCESS")
             return BehaviorTree.SUCCESS
@@ -1431,6 +1434,13 @@ class CharacterAI:
         # 네비 중에는 공격 예약 막기 (아이템 쫓기랑 동일한 안전장치)
         self._suppress_reserved_attack_this_frame()
 
+        # [추가] 공격/패링 상태면 강제로 MOVE로 깨우기
+        #  → 위에서 FSM에 BREAK_TO_MOVE 전이 추가해놨다는 전제
+        try:
+            me.state_machine.handle_state_event(('BREAK_TO_MOVE', None))
+        except Exception:
+            pass  # state_machine 없으면 조용히 무시
+
         # 1. CHASE 모드 진입 시도
         #  - 공중에서는 새로운 네비 시작 금지
         #  - 이미 CHASE라면 그대로 계속 진행
@@ -1775,7 +1785,7 @@ class CharacterAI:
         elif self.flee_state == 'EDGE_RUN':
             if me_plat:
                 # 아직 플랫폼 위라면, 계속 끝을 향해 달린다.
-                margin = 30.0
+                margin = 35.0
                 target_x = me_plat.L + margin if self.flee_escape_dir < 0 else me_plat.R - margin
 
                 # 도착 확인 (Tolerance 사용)
