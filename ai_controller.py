@@ -510,6 +510,16 @@ class CharacterAI:
         self.nav_mode = new_mode
         return BehaviorTree.SUCCESS
 
+    def _platform_under_point(self, x, y):
+        if not self.stage:
+            return None
+        platforms = scramble_nav.build_platforms_from_stage(self.stage)
+        return scramble_nav.find_platform_under_point(
+            platforms,
+            x, y,
+            vertical_tolerance=90.0,  # 지금 네비 기본값
+        )
+
     def _build_platforms(self):
         #현재 stage_colliders 기준 플랫폼 딕셔너리 생성.
         if not self.stage:
