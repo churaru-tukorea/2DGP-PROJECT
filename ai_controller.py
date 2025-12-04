@@ -83,6 +83,8 @@ class CharacterAI:
         self.reaction_lock_until = 0.0
         self.current_reaction_mode = None  # 'PARRY', 'JUMP', 'HIT'
 
+        self.flee_target_edge_x = None
+
 
         self._build_bt()
 
@@ -117,6 +119,13 @@ class CharacterAI:
         a_sword_chase = Action('검-추격/몰기', self.act_simple_attack_mode)
         a_go_item = Action('아이템 먹으러 가기', self.act_go_for_item)
         a_rush = Action('RushAttack 올인 공격', self.act_rush_attack)  # 이미 짜뒀다면 그대로 사용, 없으면 나중에
+
+        # 공격 들어오면 리액션 (패링/점프)
+        a_emergency_react = Action('긴급 리액션', self.act_emergency_react)
+        # 도망 FSM (끝 이동 -> 점프 -> 대기)
+        a_flee_logic = Action('도망(FSM)', self.act_flee_mode)
+        # 최후의 보루 (단순 이동)
+        a_simple_fallback = Action('단순 도망(Fallback)', self.act_simple_defense_mode)
 
 
         # 시간 임박 올인
@@ -156,9 +165,10 @@ class CharacterAI:
         a_sword_flee = Action('검-도망', self.act_simple_defense_mode)
         sword_defender_behavior = Selector(
             'SwordDefenderBehavior',
-            a_sword_flee,    # 나중에 EmergencyParry, RunAway, PrepareParry 붙일 자리
+            a_emergency_react,
+            a_flee_logic,
+            a_simple_fallback
         )
-
 
         sword_attacker_tree = Sequence(
             'SwordAttackerTree',
@@ -542,6 +552,7 @@ class CharacterAI:
         self.flee_segment_index = 0
         self.flee_state = 'NONE'
         self.flee_target_platform = None
+        self.flee_target_edge_x = None
         self._set_move_dir(0)
 
     def _get_random_flee_target(self, current_plat_name): # stage_colliders 정보를 이용해 랜덤한 목적지 플랫폼 선정
