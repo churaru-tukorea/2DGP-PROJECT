@@ -6,7 +6,7 @@ from pico2d import (
     SDLK_LEFT, SDLK_RIGHT, SDLK_KP_1, SDLK_KP_2,
     get_time, get_canvas_width # <--- 추가
 )
-
+from sdl2 import SDLK_KP_3
 
 from behavior_tree import BehaviorTree, Selector, Action, Condition, Sequence
 import scramble_nav
@@ -1702,3 +1702,164 @@ class CharacterAI:
 
         self.reaction_triggered = True
         return BehaviorTree.SUCCESS
+
+    def act_flee_mode(self):
+        now = get_time()
+        me = self.me
+        enemy = self.enemy
+
+        # 0. 리액션 락 걸려있으면 동작 정지
+        if now < self.reaction_lock_until:
+            self._set_move_dir(0)
+            return BehaviorTree.RUNNING
+
+        # 1. 모드 진입 (공중이면 진입 실패 -> 기존 행동 유지하거나 Fallback)
+        if self._switch_nav_mode('FLEE') == BehaviorTree.FAIL:
+            return BehaviorTree.FAIL
+
+        me_plat = self._get_platform_for(me)
+        enemy_plat = self._get_platform_for(enemy)
+
+        # NONE or WAIT (눈치 보기)
+        if self.flee_state in ('NONE', 'WAIT'):
+            # 같은 플랫폼 + 가까움(200px) -> 도망 시작
+            if me_plat and enemy_plat and me_plat.name == enemy_plat.name:
+                dist = abs(me.x - enemy.x)
+                if dist < 200.0:
+                    self.flee_state = 'EDGE_RUN'
+                    # 적 반대 방향
+                    self.flee_escape_dir = -1 if enemy.x > me.x else 1
+            else:
+                self._set_move_dir(0)  # 안전함
+
+            return BehaviorTree.RUNNING
+
+        # EDGE_RUN (끝으로 달리기)
+        elif self.flee_state == 'EDGE_RUN':
+            if not me_plat:
+                self._reset_flee_plan()  # 플랫폼 잃음 -> 리셋
+                return BehaviorTree.FAIL
+
+            # 목표: 적 반대쪽 끝 (마진 30px)
+            margin = 30.0
+            target_x = me_plat.L + margin if self.flee_escape_dir < 0 else me_plat.R - margin
+
+            # 도착 확인 (Tolerance 사용)
+            tol = self._pos_tolerance(base=10.0)
+            dist = target_x - me.x
+
+            if abs(dist) <= tol:
+                self._set_move_dir(0)
+                self.flee_state = 'PLAN_RUN'  # 도착 -> 다음 플랜 준비
+                self.flee_plan = None  # 플랜 재생성 트리거
+            else:
+                self._set_move_dir(1 if dist > 0 else -1)
+
+            return BehaviorTree.RUNNING
+
+        # PLAN_RUN (다른 플랫폼으로 이동)
+
+        elif self.flee_state == 'PLAN_RUN':
+
+            in_air = self._is_in_air()
+
+            # (A) 플랜 생성 (지상일 때만!)
+            # 공중일 때는 절대 경로를 새로 짜지 않는다.
+            if (self.flee_plan is None) and (not in_air):
+
+                # 동적 플랫폼 선정 (현재 플랫폼 제외)
+                target_name = self._get_random_flee_target(me_plat.name if me_plat else "")
+
+                # 목적지 좌표 계산
+                platforms = self._build_platforms()
+                target_plat = platforms.get(target_name)
+
+                if target_plat:
+                    target_x = (target_plat.L + target_plat.R) * 0.5
+                    target_y = target_plat.T
+
+                    # 경로 생성
+                    self.flee_plan = scramble_nav.build_scramble_plan_to_point(
+                        self.stage, me.x, me.y, target_x, target_y
+                    )
+                    self.flee_segment_index = 0
+
+                # 실패 시 대기 상태로
+                if not self.flee_plan or not self.flee_plan.segments:
+                    self.flee_state = 'WAIT'
+                    self._set_move_dir(0)
+                    return BehaviorTree.RUNNING
+
+            # (B) 플랜 실행 (Chase 코드의 방어 로직 그대로 적용)
+            if self.flee_plan:
+                # 종료 조건
+                if self.flee_segment_index >= len(self.flee_plan.segments):
+                    self._set_move_dir(0)
+                    self.flee_state = 'WAIT'
+                    self.flee_plan = None
+                    return BehaviorTree.RUNNING
+
+                seg = self.flee_plan.segments[self.flee_segment_index]
+
+                # --- WALK Segment ---
+                if seg.kind == 'walk':
+                    # Walk 타겟이 없으면 방어적으로 다음으로 넘김
+                    if seg.target_x is None:
+                        self.flee_segment_index += 1
+                        return BehaviorTree.RUNNING
+
+                    tol = self._pos_tolerance(base=10.0)
+                    if abs(seg.target_x - me.x) <= tol:
+                        self._set_move_dir(0)
+                        self.flee_segment_index += 1
+                    else:
+                        self._set_move_dir(1 if seg.target_x > me.x else -1)
+
+                # --- JUMP Segment (기존 Chase 코드 100% 활용) ---
+                elif seg.kind == 'jump':
+                    # 1. 드롭 여부 확인
+                    hold = getattr(seg.jump_template, 'hold_time', 0.5) if seg.jump_template else 0.5
+                    is_drop = (hold < 0.1)
+
+                    if is_drop:
+                        if not hasattr(seg, 'drop_dir'):
+                            platforms = scramble_nav.build_platforms_from_stage(self.stage)
+                            seg.drop_dir = self._compute_drop_dir(seg, platforms)
+                        target_dir = seg.drop_dir
+                    else:
+                        target_dir = seg.dir or 0
+
+                    # 2. 발사대 범위 설정
+                    if seg.takeoff_range:
+                        tx1, tx2 = seg.takeoff_range
+                    else:
+                        tx1 = tx2 = me.x
+
+                    tol = self._pos_tolerance(base=5.0)
+                    jumping_now = (self.jump_end_time > 0.0 and now < self.jump_end_time)
+
+                    # 상황 1: 지상 (발사 전)
+                    if (not in_air) and (not jumping_now):
+                        if is_drop:
+                            self._set_move_dir(target_dir)  # 드롭은 그냥 걸어감
+                        else:
+                            # 발사대 위치 맞추기
+                            if me.x < tx1 - tol:
+                                self._set_move_dir(1)
+                            elif me.x > tx2 + tol:
+                                self._set_move_dir(-1)
+                            else:
+                                # 발사!
+                                self._set_move_dir(0)
+                                self._tap_jump(hold_duration=hold)
+
+                    # 상황 2: 공중 (이동 중)
+                    elif in_air or jumping_now:
+                        self._set_move_dir(seg.dir or 0)
+
+                    # 상황 3: 착지 (다음 세그먼트)
+                    else:
+                        self._set_move_dir(0)
+                        self.flee_segment_index += 1
+
+            return BehaviorTree.RUNNING
