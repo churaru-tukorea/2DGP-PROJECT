@@ -290,6 +290,10 @@ class Character:
             self.JUMP_LAND: {
                 (lambda e, _self=self: e[0] == 'TIMEOUT' and (_self.right_pressed or _self.left_pressed)): self.MOVE,
                 time_out: self.IDLE,
+                # 네비게이션 등에서 강제로 이동 상태로 만들고 싶을 때
+                (lambda e: e[0] == 'BREAK_TO_MOVE'): self.MOVE,
+                # 착지 모션 중에도 점프 키를 다시 누르면 재점프 허용
+                j_down: self.JUMP_UP,
                 attack_ready: self.ATTACK_FIRE,
                 attack_spear_ready: self.ATTACK_SPEAR
             },
