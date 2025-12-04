@@ -1879,28 +1879,36 @@ class CharacterAI:
                     tol = self._pos_tolerance(base=5.0)
                     jumping_now = (self.jump_end_time > 0.0 and now < self.jump_end_time)
 
-                    # 상황 1: 지상 (발사 전)
-                    if (not in_air) and (not jumping_now):
+                    # (1) 지상: 아직 점프 시작 전
+                    if (not self._is_in_air()) and (not jumping_now):
+
+                        # 드롭이면 발사대 맞추지 말고 그냥 계산된 방향으로 걷기
                         if is_drop:
-                            self._set_move_dir(target_dir)  # 드롭은 그냥 걸어감
-                        else:
-                            # 발사대 위치 맞추기
-                            if me.x < tx1 - tol:
-                                self._set_move_dir(1)
-                            elif me.x > tx2 + tol:
-                                self._set_move_dir(-1)
-                            else:
-                                # 발사!
-                                self._set_move_dir(0)
-                                self._tap_jump(hold_duration=hold)
+                            self._set_move_dir(target_dir)
+                            return BehaviorTree.RUNNING
 
-                    # 상황 2: 공중 (이동 중)
-                    elif in_air or jumping_now:
+                        # 점프면: 발사 위치까지 수평 이동
+                        if me.x < tx1 - tol:
+                            self._set_move_dir(1)
+                            return BehaviorTree.RUNNING
+                        if me.x > tx2 + tol:
+                            self._set_move_dir(-1)
+                            return BehaviorTree.RUNNING
+
+                        # 발사 위치에 도착 → 점프 발동
+                        if hold > 0.0:
+                            self._tap_jump(hold_duration=hold)
+
+                        # 점프 직후엔 점프/드롭 방향으로 밀어줌
+                        self._set_move_dir(target_dir)
+                        return BehaviorTree.RUNNING
+
+                    # (2) 점프/드롭 중: 수평 방향 고정
+                    if self._is_in_air() or jumping_now:
                         self._set_move_dir(seg.dir or 0)
+                        return BehaviorTree.RUNNING
 
-                    # 상황 3: 착지 (다음 세그먼트)
-                    else:
-                        self._set_move_dir(0)
-                        self.flee_segment_index += 1
-
-            return BehaviorTree.RUNNING
+                    # (3) 여기까지 왔으면 "착지했다"는 뜻 → 다음 세그먼트로
+                    self._set_move_dir(0)
+                    self.flee_segment_index += 1
+                    return BehaviorTree.RUNNING
