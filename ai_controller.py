@@ -1677,6 +1677,21 @@ class CharacterAI:
 
                 # 발사대 범위 안이면 -> 멈춰서 점프!
                 self._set_move_dir(0)
+
+                # 점프 직전에 상태머신을 지상 이동 상태로 정리
+                if not self._is_in_air():
+                    cur_state = me.state_machine.cur_state
+                    # 지상인데 입력을 씹어버릴 수 있는 상태들
+                    ground_locked_states = (me.ATTACK_FIRE, me.ATTACK_SPEAR, me.PARRY_HOLD)
+
+                    if cur_state in ground_locked_states:
+                        self._dbg(f"CHASE-jump: BREAK_TO_MOVE from {cur_state.__class__.__name__}")
+                        try:
+                            me.state_machine.handle_state_event(('BREAK_TO_MOVE', None))
+                        except Exception:
+                            pass
+
+                # 정리 후 실제 점프 입력
                 self._tap_jump(hold_time)
 
                 # (특수) 대각선 점프는 뛰면서 이동
