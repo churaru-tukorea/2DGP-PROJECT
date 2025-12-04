@@ -355,27 +355,7 @@ class CharacterAI:
         self._send_key(SDLK_KP_2, False)
 
     def _is_in_air(self):
-        # 1. 맨바닥 체크
-        if self.me.y <= getattr(self.me, 'ground_y', 90) + 10:
-            return False
-
-        # 2. 플랫폼 정밀 검사
-        if self.stage:
-            import scramble_nav
-            platforms = scramble_nav.build_platforms_from_stage(self.stage)
-
-            for name, p in platforms.items():
-                #  X축 여유를 30 -> 60으로 대폭 증가
-                # 캐릭터가 플랫폼 끝에 매달려 있어도 '땅'이라고 인정해줌
-                if p.L - 60 <= self.me.x <= p.R + 60:
-
-                    # Y축 검사 (높이 차이 60 이내)
-                    diff = abs(self.me.y - p.T)
-
-                    if diff < 60.0:
-                        return False
-
-        return True
+        return self._is_actor_in_air(self.me)
 
     def set_scramble_context(self, stage_colliders, weapon_getter):
        # stage_colliders: StageColliders 인스턴스
@@ -527,28 +507,26 @@ class CharacterAI:
         return scramble_nav.build_platforms_from_stage(self.stage)
 
     def _get_platform_for(self, actor):
-        #상대가 서 있는 플랫폼 반환.
         if not self.stage or actor is None:
             return None
+
         platforms = self._build_platforms()
-        return scramble_nav.find_platform_under_point(platforms, actor.x, actor.y)
 
-    def _is_actor_in_air(self, actor):   #self._is_in_air 와 같은 로직을, 임의 플레이어에 대해 사용.
-        if actor is None:
-            return False
+        # 네비게이션과 동일한 Robust 판정
+        p = scramble_nav.find_platform_under_point(platforms, actor.x, actor.y)
+        if p: return p
+        p = scramble_nav.find_platform_under_point(platforms, actor.x - 30, actor.y)
+        if p: return p
+        p = scramble_nav.find_platform_under_point(platforms, actor.x + 30, actor.y)
+        return p
 
+    def _is_actor_in_air(self, actor):
+        # 바닥 (floor)용 ground_y는 그대로
         if actor.y <= getattr(actor, 'ground_y', 90) + 10:
             return False
 
-        if self.stage:
-            platforms = self._build_platforms()
-            for name, p in platforms.items():
-                if p.L - 60 <= actor.x <= p.R + 60:
-                    diff = abs(actor.y - p.T)
-                    if diff < 60.0:
-                        return False
-
-        return True
+        plat = self._platform_under_point(actor.x, actor.y)
+        return plat is None
 
     def _dbg(self, msg: str): #아오 디버그시치
         print(f"[AI-DBG] {msg}")
@@ -1592,74 +1570,111 @@ class CharacterAI:
             return BehaviorTree.RUNNING
 
         # 7-b. jump 세그먼트: 아이템 네비와 최대한 같은 패턴
-        if seg.kind == 'jump':
-            # [추가 1] Drop 여부 및 방향 확인
-            # hold_time이 거의 없으면 Drop으로 간주
-            hold = getattr(seg.jump_template, 'hold_time', 0.5) if seg.jump_template else 0.5
-            is_drop = (hold < 0.1)
+        elif seg.kind == 'jump':
+
+            # --- 공통 데이터 준비 ---
+            platforms = scramble_nav.build_platforms_from_stage(self.stage)
+            dest_plat_name = seg.jump_template.to_platform
+            dest_plat = platforms.get(dest_plat_name)
+
+            # 하강(Drop) 판별: hold_time이 매우 짧으면 하강으로 간주
+            hold_time = seg.jump_template.hold_time if seg.jump_template else 0.5
+            is_drop = (hold_time < 0.1)
+
+            # drop 세그먼트라면, 이 세그먼트 동안 쓸 가로 방향을 미리 계산해서 저장
+            if is_drop and not hasattr(seg, 'drop_dir'):
+                seg.drop_dir = self._compute_drop_dir(seg, platforms)
+
+            # 착지 기준 플랫폼 결정
+            floor_plat = platforms.get('floor')
+            if is_drop and floor_plat is not None:
+                land_plat = floor_plat  # drop이면 무조건 floor 기준으로 착지 판단
+            else:
+                land_plat = dest_plat  # 점프면 기존대로 목표 플랫폼 기준
+
+            # --- (0) 예전 점프 타이머 청소 (추가 안전장치) ---
+            # 지상인데도 점프 타이머가 남아있으면 초기화 (FLEE <-> CHASE 전환 시 버그 방지)
+            #if (not self._is_in_air()) and self.jump_end_time > 0.0 and now < self.jump_end_time:
+            #    self._set_jump_timer(0.0, "chase_clear_stale_jump")
+
+            # --- (1) 착지 확인 (Landing Check) ---
+            # 하강이든 점프든, "땅에 닿았고 + 목표 높이 근처"면 성공
+            is_falling = getattr(me, 'vy', 0) <= 0
+            if not self._is_in_air() and is_falling:
+                if land_plat and abs(me.y - land_plat.T) < 60.0:
+                    # 착지 성공 -> 다음 세그먼트로
+                    self._set_jump_timer(0.0, "reset_chase_plan")
+                    self._send_key(SDLK_KP_1, False)
+                    self._set_move_dir(0)
+                    self.chase_segment_index += 1
+                    self.chase_segment_start_time = now
+                    return BehaviorTree.RUNNING
+
+            # --- (2) 공중 제어 (Air Control) ---
+            # 공중에 있거나, 점프 키를 누르고 있는 중이라면
+            if self._is_in_air() or (self.jump_end_time > 0 and get_time() < self.jump_end_time):
+                if is_drop:
+                    # 점프키 끄고, 드랍용 방향으로만 계속 민다
+                    self._send_key(SDLK_KP_1, False)
+                    drop_dir = getattr(seg, 'drop_dir', self._compute_drop_dir(seg, platforms))
+                    self._set_move_dir(drop_dir)
+                else:
+                    # [점프 중]: 기존 로직 100% 유지 (대각선/수직 분기)
+                    is_hard_diagonal = False
+                    if seg.jump_template:
+                        fp, tp = seg.jump_template.from_platform, seg.jump_template.to_platform
+                        if (fp, tp) in (('r3_L2', 'r2_L'), ('r3_R1', 'r2_R')):
+                            is_hard_diagonal = True
+
+                    if is_hard_diagonal:
+                        self._set_move_dir(seg.dir)
+                        self._send_key(SDLK_KP_1, True)
+                        self.jump_end_time = get_time() + 0.1
+                    else:
+                        target_height = dest_plat.T if dest_plat else (me.y + 100.0)
+                        if me.y < target_height + 80.0:
+                            self._set_move_dir(0)
+                            self._send_key(SDLK_KP_1, True)
+                            self.jump_end_time = get_time() + 0.1
+                        else:
+                            self._set_move_dir(seg.dir)
+                return BehaviorTree.RUNNING
+
+            # --- (3) 지상 이동 및 발사 (On Ground Decision) ---
 
             if is_drop:
-                # Drop 방향이 없으면 기존 헬퍼 함수로 계산 (아이템 로직과 동일)
-                if not hasattr(seg, 'drop_dir'):
-                    platforms = scramble_nav.build_platforms_from_stage(self.stage)
-                    seg.drop_dir = self._compute_drop_dir(seg, platforms)
-                target_dir = seg.drop_dir
-            else:
-                target_dir = seg.dir or 0
+                # [CASE: 하강]
+                # 발사대 범위 같은 건 무시하고, 이 세그먼트의 drop_dir 방향으로만 걷게 한다.
+                drop_dir = getattr(seg, 'drop_dir', self._compute_drop_dir(seg, platforms))
+                self._set_move_dir(drop_dir)
+                # 점프 키는 절대 누르지 않는다. 그냥 걸어가다가 바닥이 사라지면 중력으로 떨어짐.
+                return BehaviorTree.RUNNING
 
-            # 발사 구간 설정 (기존 코드 유지)
-            if seg.takeoff_range:
+            else:
+                # [CASE: 점프]
+                # 점프는 '발사대(Takeoff Range)'에 정확히 서는 것이 생명입니다.
                 tx1, tx2 = seg.takeoff_range
-            else:
-                tx1 = tx2 = me.x
+                margin = self._pos_tolerance(base=5.0)
+                ex1 = tx1 - margin
+                ex2 = tx2 + margin
 
-            tol = self._pos_tolerance(base=5.0)
-            jumping_now = (self.jump_end_time > 0.0 and now < self.jump_end_time)
-
-            # (1) 지상 동작 (아직 점프 전)
-            if (not self._is_in_air()) and (not jumping_now):
-
-                # [추가 2] Drop이면 발사대 범위 맞추지 말고, 계산된 방향으로 무조건 걷기!
-                # (이게 없어서 dir=0일 때 멈춰있던 것임)
-                if is_drop:
-                    self._set_move_dir(target_dir)
+                # 발사대 범위 밖이면 -> 범위 안으로 이동
+                if not (ex1 <= me.x <= ex2):
+                    center = (tx1 + tx2) * 0.5
+                    self._set_move_dir(1 if me.x < center else -1)
                     return BehaviorTree.RUNNING
 
-                # --- 이 아래는 기존 Jump 로직 유지 ---
+                # 발사대 범위 안이면 -> 멈춰서 점프!
+                self._set_move_dir(0)
+                self._tap_jump(hold_time)
 
-                # 발사 위치까지 수평 이동
-                if me.x < tx1 - tol:
-                    self._set_move_dir(1)
-                    return BehaviorTree.RUNNING
-                if me.x > tx2 + tol:
-                    self._set_move_dir(-1)
-                    return BehaviorTree.RUNNING
+                # (특수) 대각선 점프는 뛰면서 이동
+                if seg.jump_template:
+                    fp, tp = seg.jump_template.from_platform, seg.jump_template.to_platform
+                    if (fp, tp) in (('r3_L2', 'r2_L'), ('r3_R1', 'r2_R')):
+                        self._set_move_dir(seg.dir)
 
-                # 발사대 도착 -> 점프 시작
-                if hold > 0.0:
-                    self._tap_jump(hold_duration=hold)
-
-                # 점프/드롭 중에는 정해진 방향으로 민다
-                self._set_move_dir(target_dir)
                 return BehaviorTree.RUNNING
-
-            # (2) 점프/드롭 중: 수평 방향 고정
-            if self._is_in_air() or jumping_now:
-                self._dbg(f"CHASE-jump: in air, keep dir={seg.dir}")
-                self._set_move_dir(seg.dir or 0)
-                return BehaviorTree.RUNNING
-
-            # (3) 여기까지 왔다는 건 방금 착지했다는 뜻 → 다음 세그먼트로
-            self._dbg("CHASE-jump: landing detected, go next segment")
-            self._set_move_dir(0)
-            self.chase_segment_index += 1
-            self.chase_segment_start_time = now
-            return BehaviorTree.RUNNING
-
-        # 7-c. 알 수 없는 kind → 방어 코드: 그냥 다음 세그먼트로 넘긴다
-        self.chase_segment_index += 1
-        self.chase_segment_start_time = now
-        return BehaviorTree.RUNNING
 
     def act_emergency_react(self):
         enemy = self.enemy
@@ -1867,58 +1882,95 @@ class CharacterAI:
                         self._set_move_dir(1 if seg.target_x > me.x else -1)
 
                 # --- JUMP Segment (기존 Chase 코드 100% 활용) ---
+                        # [B] 점프/하강 (Jump) - act_go_for_item 로직 100% 이식
                 elif seg.kind == 'jump':
-                    # 1. 드롭 여부 확인
-                    hold = getattr(seg.jump_template, 'hold_time', 0.5) if seg.jump_template else 0.5
-                    is_drop = (hold < 0.1)
 
-                    if is_drop:
-                        if not hasattr(seg, 'drop_dir'):
-                            platforms = scramble_nav.build_platforms_from_stage(self.stage)
+                        # --- 공통 데이터 준비 ---
+                        platforms = scramble_nav.build_platforms_from_stage(self.stage)
+                        dest_plat_name = seg.jump_template.to_platform
+                        dest_plat = platforms.get(dest_plat_name)
+
+                        # 하강(Drop) 판별: hold_time이 매우 짧으면 하강으로 간주
+                        hold_time = seg.jump_template.hold_time if seg.jump_template else 0.5
+                        is_drop = (hold_time < 0.1)
+
+                        # drop 세그먼트라면, 이 세그먼트 동안 쓸 가로 방향을 미리 계산해서 저장
+                        if is_drop and not hasattr(seg, 'drop_dir'):
                             seg.drop_dir = self._compute_drop_dir(seg, platforms)
-                        target_dir = seg.drop_dir
-                    else:
-                        target_dir = seg.dir or 0
 
-                    # 2. 발사대 범위 설정
-                    if seg.takeoff_range:
-                        tx1, tx2 = seg.takeoff_range
-                    else:
-                        tx1 = tx2 = me.x
+                        # 착지 기준 플랫폼 결정
+                        floor_plat = platforms.get('floor')
+                        if is_drop and floor_plat is not None:
+                            land_plat = floor_plat  # drop이면 무조건 floor 기준으로 착지 판단
+                        else:
+                            land_plat = dest_plat  # 점프면 기존대로 목표 플랫폼 기준
 
-                    tol = self._pos_tolerance(base=5.0)
-                    jumping_now = (self.jump_end_time > 0.0 and now < self.jump_end_time)
+                        # --- (0) 예전 점프 타이머 청소 ---
+                        #if (not self._is_in_air()) and self.jump_end_time > 0.0 and now < self.jump_end_time:
+                        #    self._set_jump_timer(0.0, "flee_clear_stale_jump")
 
-                    # (1) 지상: 아직 점프 시작 전
-                    if (not self._is_in_air()) and (not jumping_now):
+                        # --- (1) 착지 확인 (Landing Check) ---
+                        is_falling = getattr(me, 'vy', 0) <= 0
+                        if not self._is_in_air() and is_falling:
+                            if land_plat and abs(me.y - land_plat.T) < 60.0:
+                                # 착지 성공
+                                self._set_jump_timer(0.0, "reset_flee_plan")
+                                self._send_key(SDLK_KP_1, False)
+                                self._set_move_dir(0)
+                                self.flee_segment_index += 1
+                                return BehaviorTree.RUNNING
 
-                        # 드롭이면 발사대 맞추지 말고 그냥 계산된 방향으로 걷기
+                        # --- (2) 공중 제어 (Air Control) ---
+                        if self._is_in_air() or (self.jump_end_time > 0 and get_time() < self.jump_end_time):
+                            if is_drop:
+                                self._send_key(SDLK_KP_1, False)
+                                drop_dir = getattr(seg, 'drop_dir', self._compute_drop_dir(seg, platforms))
+                                self._set_move_dir(drop_dir)
+                            else:
+                                is_hard_diagonal = False
+                                if seg.jump_template:
+                                    fp, tp = seg.jump_template.from_platform, seg.jump_template.to_platform
+                                    if (fp, tp) in (('r3_L2', 'r2_L'), ('r3_R1', 'r2_R')):
+                                        is_hard_diagonal = True
+
+                                if is_hard_diagonal:
+                                    self._set_move_dir(seg.dir)
+                                    self._send_key(SDLK_KP_1, True)
+                                    self.jump_end_time = get_time() + 0.1
+                                else:
+                                    target_height = dest_plat.T if dest_plat else (me.y + 100.0)
+                                    if me.y < target_height + 80.0:
+                                        self._set_move_dir(0)
+                                        self._send_key(SDLK_KP_1, True)
+                                        self.jump_end_time = get_time() + 0.1
+                                    else:
+                                        self._set_move_dir(seg.dir)
+                            return BehaviorTree.RUNNING
+
+                        # --- (3) 지상 이동 및 발사 (On Ground Decision) ---
+
                         if is_drop:
-                            self._set_move_dir(target_dir)
+                            drop_dir = getattr(seg, 'drop_dir', self._compute_drop_dir(seg, platforms))
+                            self._set_move_dir(drop_dir)
                             return BehaviorTree.RUNNING
 
-                        # 점프면: 발사 위치까지 수평 이동
-                        if me.x < tx1 - tol:
-                            self._set_move_dir(1)
+                        else:
+                            tx1, tx2 = seg.takeoff_range
+                            margin = self._pos_tolerance(base=5.0)
+                            ex1 = tx1 - margin
+                            ex2 = tx2 + margin
+
+                            if not (ex1 <= me.x <= ex2):
+                                center = (tx1 + tx2) * 0.5
+                                self._set_move_dir(1 if me.x < center else -1)
+                                return BehaviorTree.RUNNING
+
+                            self._set_move_dir(0)
+                            self._tap_jump(hold_time)
+
+                            if seg.jump_template:
+                                fp, tp = seg.jump_template.from_platform, seg.jump_template.to_platform
+                                if (fp, tp) in (('r3_L2', 'r2_L'), ('r3_R1', 'r2_R')):
+                                    self._set_move_dir(seg.dir)
+
                             return BehaviorTree.RUNNING
-                        if me.x > tx2 + tol:
-                            self._set_move_dir(-1)
-                            return BehaviorTree.RUNNING
-
-                        # 발사 위치에 도착 → 점프 발동
-                        if hold > 0.0:
-                            self._tap_jump(hold_duration=hold)
-
-                        # 점프 직후엔 점프/드롭 방향으로 밀어줌
-                        self._set_move_dir(target_dir)
-                        return BehaviorTree.RUNNING
-
-                    # (2) 점프/드롭 중: 수평 방향 고정
-                    if self._is_in_air() or jumping_now:
-                        self._set_move_dir(seg.dir or 0)
-                        return BehaviorTree.RUNNING
-
-                    # (3) 여기까지 왔으면 "착지했다"는 뜻 → 다음 세그먼트로
-                    self._set_move_dir(0)
-                    self.flee_segment_index += 1
-                    return BehaviorTree.RUNNING
