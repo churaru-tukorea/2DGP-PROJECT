@@ -1594,8 +1594,8 @@ class CharacterAI:
 
             # --- (0) 예전 점프 타이머 청소 (추가 안전장치) ---
             # 지상인데도 점프 타이머가 남아있으면 초기화 (FLEE <-> CHASE 전환 시 버그 방지)
-            #if (not self._is_in_air()) and self.jump_end_time > 0.0 and now < self.jump_end_time:
-            #    self._set_jump_timer(0.0, "chase_clear_stale_jump")
+            if (not self._is_in_air()) and self.jump_end_time > 0.0 and now < self.jump_end_time:
+                self._set_jump_timer(0.0, "chase_clear_stale_jump")
 
             # --- (1) 착지 확인 (Landing Check) ---
             # 하강이든 점프든, "땅에 닿았고 + 목표 높이 근처"면 성공
@@ -1906,8 +1906,8 @@ class CharacterAI:
                             land_plat = dest_plat  # 점프면 기존대로 목표 플랫폼 기준
 
                         # --- (0) 예전 점프 타이머 청소 ---
-                        #if (not self._is_in_air()) and self.jump_end_time > 0.0 and now < self.jump_end_time:
-                        #    self._set_jump_timer(0.0, "flee_clear_stale_jump")
+                        if (not self._is_in_air()) and self.jump_end_time > 0.0 and now < self.jump_end_time:
+                            self._set_jump_timer(0.0, "flee_clear_stale_jump")
 
                         # --- (1) 착지 확인 (Landing Check) ---
                         is_falling = getattr(me, 'vy', 0) <= 0

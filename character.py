@@ -297,6 +297,7 @@ class Character:
                 attack_end_air: self.JUMP_FALL,  # 착지 모션/낙하 상태로 (JumpLand 쓰면 그걸로 교체)
                 attack_end_move: self.MOVE,
                 attack_end_idle: self.IDLE,
+                (lambda e: e[0] == 'BREAK_TO_MOVE'): self.MOVE,
             },
             self.PARRY_HOLD: {
                 p_up: self.IDLE,
@@ -310,6 +311,7 @@ class Character:
                 attack_end_air: self.JUMP_FALL,
                 attack_end_move: self.MOVE,
                 attack_end_idle: self.IDLE,
+                (lambda e: e[0] == 'BREAK_TO_MOVE'): self.MOVE,
             }
         })
         pass
