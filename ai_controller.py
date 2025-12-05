@@ -1724,6 +1724,19 @@ class CharacterAI:
         enemy = self.enemy
         now = get_time()
 
+        me = self.me
+        enemy = self.enemy
+
+        # 0. 거리/높이 필터: "실제로 맞을 거리인가?"
+        dx = abs(me.x - enemy.x)
+        dy = abs(me.y - enemy.y)
+
+        MAX_PARRY_DIST = 200  # 대충 검 사거리 + 여유
+        MAX_HEIGHT_DIFF = 80  # 플랫폼 한 단 정도 허용
+
+        if dx > MAX_PARRY_DIST or dy > MAX_HEIGHT_DIFF:
+            return BehaviorTree.FAIL
+
         # 1. 적 정보 읽기
         fire_time = getattr(enemy, 'attack_fire_time', None)
         is_reserved = getattr(enemy, 'is_attack_reserved', False)
