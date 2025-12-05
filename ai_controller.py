@@ -1620,9 +1620,9 @@ class CharacterAI:
             # --- (1) 착지 확인 (Landing Check) ---
             # 하강이든 점프든, "땅에 닿았고 + 목표 높이 근처"면 성공
             is_falling = getattr(me, 'vy', 0) <= 0
-            if not self._is_in_air() and is_falling:
+            # 점프 타이머가 끝난 후에만 착지 검사 (점프 씹힘 방지)
+            if not self._is_in_air() and is_falling and (now >= self.jump_end_time):
                 if land_plat and abs(me.y - land_plat.T) < 60.0:
-                    # 착지 성공 -> 다음 세그먼트로
                     self._set_jump_timer(0.0, "reset_chase_plan")
                     self._send_key(SDLK_KP_1, False)
                     self._set_move_dir(0)
