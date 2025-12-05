@@ -79,6 +79,8 @@ class CharacterAI:
         self.flee_target_platform = None
         self.flee_escape_dir = 0
 
+
+
         # 리액션(패링/점프) 전용 변수
         self.last_seen_attack_fire_time = None
         self.reaction_triggered = False
@@ -1086,7 +1088,7 @@ class CharacterAI:
                         self.jump_end_time = get_time() + 0.1
                     else:
                         target_height = dest_plat.T if dest_plat else (self.me.y + 100.0)
-                        vertical_margin = 60.0  # 플랫폼 위로 60px 정도만 남기고 수직 유지
+                        vertical_margin = 40.0  # 플랫폼 위로 60px 정도만 남기고 수직 유지
                         if self.me.y < target_height - vertical_margin:
                             self._set_move_dir(0)
                             self._send_key(SDLK_KP_1, True)
@@ -1360,7 +1362,7 @@ class CharacterAI:
                         self.jump_end_time = get_time() + 0.1
                     else:
                         target_height = dest_plat.T if dest_plat else (me.y + 100.0)
-                        vertical_margin = 60.0  # 플랫폼 위로 60px 정도만 남기고 수직 유지
+                        vertical_margin = 40.0  # 플랫폼 위로 60px 정도만 남기고 수직 유지
                         if self.me.y < target_height - vertical_margin:
                             self._set_move_dir(0)
                             self._send_key(SDLK_KP_1, True)
@@ -1650,7 +1652,7 @@ class CharacterAI:
                         self.jump_end_time = get_time() + 0.1
                     else:
                         target_height = dest_plat.T if dest_plat else (me.y + 100.0)
-                        vertical_margin = 60.0  # 플랫폼 위로 60px 정도만 남기고 수직 유지
+                        vertical_margin = 40.0  # 플랫폼 위로 60px 정도만 남기고 수직 유지
                         if self.me.y < target_height - vertical_margin:
                             self._set_move_dir(0)
                             self._send_key(SDLK_KP_1, True)
@@ -1817,7 +1819,7 @@ class CharacterAI:
                 dist = target_x - me.x
                 print(
                     f"[EDGE] Plat:{me_plat.name} | MeX:{me.x:.1f} Target:{target_x:.1f} | Dist:{dist:.1f} Tol:{tol:.1f}")
-                if abs(dist) <= tol:
+                if abs(dist) <= tol * 1.5:
                     print(f"   -> [ARRIVED] 도착! PLAN_RUN으로 전환.")
                     self._set_move_dir(0)
                     self.flee_state = 'PLAN_RUN'  # 도착 -> 다음 플랜 준비
@@ -1973,7 +1975,7 @@ class CharacterAI:
                                     self.jump_end_time = get_time() + 0.1
                                 else:
                                     target_height = dest_plat.T if dest_plat else (me.y + 100.0)
-                                    vertical_margin = 60.0  # 플랫폼 위로 60px 정도만 남기고 수직 유지
+                                    vertical_margin = 40.0  # 플랫폼 위로 60px 정도만 남기고 수직 유지
                                     if self.me.y < target_height - vertical_margin:
                                         self._set_move_dir(0)
                                         self._send_key(SDLK_KP_1, True)
