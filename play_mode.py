@@ -41,16 +41,23 @@ def handle_events():
             running = False
             exit()
 
-        # 플레이 중에도 i를 누르면 무기 선택 모드로 넘어감
+        # 플레이 중에도 F1 -> item_mode
         elif event.type == SDL_KEYDOWN and event.key == SDLK_F1:
             import item_mode
             game_framework.change_mode(item_mode)
 
+        # F2 -> select_mode (cpu/2P 다시 고르기)
+        elif event.type == SDL_KEYDOWN and event.key == SDLK_F2:
+            import select_mode
+            game_framework.change_mode(select_mode)
+
         else:
+            # 항상 p1은 내가 조작
             p1.handle_event(event)
+
+            # cpu_ai가 없으면 => 2인 모드 => p2도 키 입력 받음
             if cpu_ai is None:
                 p2.handle_event(event)
-
 
 
 
