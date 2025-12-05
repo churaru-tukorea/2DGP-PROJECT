@@ -7,12 +7,11 @@ image = None  # 나중에 패널/이미지 넣을 자리
 
 def init():
     global image
-    image = None
-    print('[item_mode] init - "-"=sword, "="+spear 선택')
+    image = load_image('item.png')
 
 def finish():
     global image
-    image = None
+    del image
 
 def pause():
     pass
