@@ -1866,6 +1866,62 @@ class CharacterAI:
             return BehaviorTree.RUNNING
 
         # PLAN_RUN (다른 플랫폼으로 이동)
+        # EDGE_HOLD (구석에서 버티기: 같은 플랫폼 안에서 거리 벌리기)
+        elif self.flee_state == 'EDGE_HOLD':
+            # 플랫폼/적 정보가 없으면 그냥 대기 상태로
+            if not me_plat or not enemy_plat:
+                self._set_move_dir(0)
+                self.flee_state = 'WAIT'
+                return BehaviorTree.RUNNING
+
+            # 이미 플랫폼이 달라져 있으면(떨어졌거나 올라갔거나) -> 도망 성공으로 보고 종료
+            if me_plat.name != enemy_plat.name:
+                print(f"[EDGE-HOLD] 다른 플랫폼으로 분리됨({me_plat.name} vs {enemy_plat.name}). WAIT 전환.")
+                self._set_move_dir(0)
+                self.flee_state = 'WAIT'
+                self.flee_plan = None
+                return BehaviorTree.RUNNING
+
+            # 같은 플랫폼에 아직 같이 있음 -> x 거리 보고 판단
+            dist = abs(me.x - enemy.x)
+
+            # “충분히 멀다”면: 그냥 모서리에서 가만히 있음 (거리 벌리기 성공)
+            safe_dist = 230.0  # 적당히 도망 시작 거리(200)보다 조금 넉넉하게
+            if dist >= safe_dist:
+                print(f"[EDGE-HOLD] 충분히 멀어짐(dist={dist:.1f}). 모서리에서 대기.")
+                self._set_move_dir(0)
+                # 더 이상 위협 없으면 그냥 WAIT로 보내도 됨
+                self.flee_state = 'WAIT'
+                return BehaviorTree.RUNNING
+
+            # 너무 가까워졌고, 일정 시간 이상 압박당했으면 -> 플랫폼 탈출 시도
+            if self.flee_edge_hold_since <= 0.0:
+                self.flee_edge_hold_since = now
+            hold_time = now - self.flee_edge_hold_since
+
+            escape_trigger_dist = 180.0  # 이 거리보다 가까우면 '압박'으로 봄
+            min_hold_time = 0.3         # 최소 0.3초 정도는 버텨 본 뒤에 도망
+
+            if dist < escape_trigger_dist and hold_time > min_hold_time:
+                print(f"[EDGE-HOLD] 계속 압박(dist={dist:.1f}, t={hold_time:.2f}). PLAN_RUN으로 전환.")
+                self._set_move_dir(0)
+                self.flee_state = 'PLAN_RUN'
+                self.flee_plan = None
+                return BehaviorTree.RUNNING
+
+            # 그 외 상황: 모서리 근처에서 약간씩만 위치 보정 (너무 안쪽으로 들어가면 다시 모서리로)
+            margin = 35.0
+            edge_x = me_plat.L + margin if self.flee_escape_dir < 0 else me_plat.R - margin
+            tol = self._pos_tolerance(base=10.0)
+
+            if abs(me.x - edge_x) > tol:
+                move = 1 if edge_x > me.x else -1
+                print(f"[EDGE-HOLD] 모서리 재보정. Dir:{move}")
+                self._set_move_dir(move)
+            else:
+                self._set_move_dir(0)
+
+            return BehaviorTree.RUNNING
 
         elif self.flee_state == 'PLAN_RUN':
 
