@@ -1,1 +1,3 @@
 weapon_mode = 'sword' # 무기모드만 들고있는 간단한 파일
+
+player2_mode = 'cpu'
