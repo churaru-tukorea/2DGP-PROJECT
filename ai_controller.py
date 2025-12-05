@@ -16,6 +16,7 @@ from spear import Spear
 
 import game_world
 from items import SpeedClockItem, AttackClockItem
+import config
 
 
 class CharacterAI:
@@ -1765,9 +1766,19 @@ class CharacterAI:
 
         if mode == 'PARRY':
             self._set_move_dir(0)
-            self._send_key(SDLK_KP_3, True)  # 패링 키 Down
-            self._send_key(SDLK_KP_3, False)  # 패링 키 Up
-            self.reaction_lock_until = now + 0.3  # 0.3초간 이동 불가
+
+            # 이미 패링 중이면 다시 누르지 않음
+            if getattr(self.me, 'action', '') != 'parry_hold':
+                self._send_key(SDLK_KP_3, True)  # 패링 키 Down
+
+                now = get_time()
+                if getattr(config, 'weapon_mode', 'sword') == 'sword':
+                    hold = 0.35  # 사람 반응처럼 0.3~0.4초 정도만 든다
+                    self.me.parry_active_until = now + hold
+                    self.me._parry_hold_until = now + hold
+                # spear 모드는 Parry_Hold 안에서 이미 0.12초로 관리하니까 건들 필요 없음
+
+            self.reaction_lock_until = now + 0.35
 
         elif mode == 'JUMP':
             # 공중이면 점프 입력 안 함 (이미 늦음 or 피함)
