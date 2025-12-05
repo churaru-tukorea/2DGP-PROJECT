@@ -1789,11 +1789,12 @@ class CharacterAI:
             self._set_move_dir(0)
             return BehaviorTree.RUNNING
 
+        res = self._switch_nav_mode('FLEE')
+
             # 모드 진입 실패(공중 등) 시 FAIL 리턴 금지 -> Fallback 실행 차단!
-        if self._switch_nav_mode('FLEE') == BehaviorTree.FAIL:
+        if res == BehaviorTree.FAIL:
+            # nav_mode는 그대로 두고, 이번 틱은 도망 FSM에서 추가 입력 안 준다.
             self._set_move_dir(0)
-            # FAIL을 반환하면 BT가 다음 노드(단순 도망)를 실행해버려서 떨림 발생.
-            # RUNNING을 반환해서 "이번 프레임은 그냥 쉰다"로 처리.
             return BehaviorTree.RUNNING
 
         me_plat = self._get_platform_for(me)
