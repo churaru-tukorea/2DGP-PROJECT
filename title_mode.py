@@ -26,7 +26,7 @@ def update():
 
 def draw():
     clear_canvas()
-    image.draw(1280, 720)
+    image.draw(640, 360)
     update_canvas()
 
 def handle_events():
