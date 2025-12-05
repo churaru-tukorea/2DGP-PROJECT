@@ -89,6 +89,10 @@ class CharacterAI:
 
         self.flee_target_edge_x = None
 
+        # 모서리에서 버티기용 타이머
+
+        self.flee_edge_hold_since = 0.0
+
 
         self._build_bt()
 
@@ -1811,6 +1815,7 @@ class CharacterAI:
                 print(f"[FLEE-START] 적 접근 감지! Dist:{dist:.1f}. EDGE_RUN 시작.")
                 self.flee_state = 'EDGE_RUN'
                 self.flee_escape_dir = -1 if enemy.x > me.x else 1
+                self.flee_edge_hold_since = 0.0 # 모서리 버티기 타이머 리셋
             else:
                 # 도망칠 필요가 없어지면(적이 멀어짐), 플랜을 완전히 초기화
                 # 그냥 멈추기만 하면 옛날 플랜이 남아서 나중에 머리를 박음.
