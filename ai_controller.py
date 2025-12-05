@@ -1086,7 +1086,8 @@ class CharacterAI:
                         self.jump_end_time = get_time() + 0.1
                     else:
                         target_height = dest_plat.T if dest_plat else (self.me.y + 100.0)
-                        if self.me.y < target_height + 80.0:
+                        vertical_margin = 60.0  # 플랫폼 위로 60px 정도만 남기고 수직 유지
+                        if self.me.y < target_height - vertical_margin:
                             self._set_move_dir(0)
                             self._send_key(SDLK_KP_1, True)
                             self.jump_end_time = get_time() + 0.1
@@ -1359,7 +1360,8 @@ class CharacterAI:
                         self.jump_end_time = get_time() + 0.1
                     else:
                         target_height = dest_plat.T if dest_plat else (me.y + 100.0)
-                        if me.y < target_height + 80.0:
+                        vertical_margin = 60.0  # 플랫폼 위로 60px 정도만 남기고 수직 유지
+                        if self.me.y < target_height - vertical_margin:
                             self._set_move_dir(0)
                             self._send_key(SDLK_KP_1, True)
                             self.jump_end_time = get_time() + 0.1
@@ -1648,7 +1650,8 @@ class CharacterAI:
                         self.jump_end_time = get_time() + 0.1
                     else:
                         target_height = dest_plat.T if dest_plat else (me.y + 100.0)
-                        if me.y < target_height + 80.0:
+                        vertical_margin = 60.0  # 플랫폼 위로 60px 정도만 남기고 수직 유지
+                        if self.me.y < target_height - vertical_margin:
                             self._set_move_dir(0)
                             self._send_key(SDLK_KP_1, True)
                             self.jump_end_time = get_time() + 0.1
@@ -1970,7 +1973,8 @@ class CharacterAI:
                                     self.jump_end_time = get_time() + 0.1
                                 else:
                                     target_height = dest_plat.T if dest_plat else (me.y + 100.0)
-                                    if me.y < target_height + 80.0:
+                                    vertical_margin = 60.0  # 플랫폼 위로 60px 정도만 남기고 수직 유지
+                                    if self.me.y < target_height - vertical_margin:
                                         self._set_move_dir(0)
                                         self._send_key(SDLK_KP_1, True)
                                         self.jump_end_time = get_time() + 0.1
