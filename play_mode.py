@@ -76,8 +76,18 @@ def init():
     p2 = Character(pid=2)
     p2.x = 900
 
-    # p2를 AI로 조종
-    cpu_ai = CharacterAI(p2, p1)
+    # 여기에서 config.player2_mode에 따라 CPU/2P 선택
+    mode = getattr(config, 'player2_mode', 'cpu')
+
+    if mode == 'cpu':
+        # p2를 AI가 조종
+        cpu_ai = CharacterAI(p2, p1)
+        print('[play_mode] player2_mode = cpu (p2=AI)')
+    else:
+        # 2인 모드 -> p2도 사람이 조종, AI는 끈다
+        cpu_ai = None
+        print('[play_mode] player2_mode = 2p (p2=human)')
+
 
     # 배경
     background_layer = StaticImageLayer('background.png', fit='cover')
@@ -109,7 +119,9 @@ def init():
         game_world.add_object(sword, 2)
 
         # AI에 nav 컨텍스트 연결
-        cpu_ai.set_scramble_context(stage_colliders, lambda: sword)
+
+        if mode == 'cpu':
+            cpu_ai.set_scramble_context(stage_colliders, lambda: sword)
 
         # 플레이어가 검을 줍는 충돌 그룹
         game_world.add_collision_pair('char:sword', p1, None)
@@ -127,7 +139,8 @@ def init():
         spear.bind_stage(stage_colliders)
         game_world.add_object(spear, 2)
 
-        cpu_ai.set_scramble_context(stage_colliders, lambda: spear)
+        if mode == 'cpu':
+            cpu_ai.set_scramble_context(stage_colliders, lambda: spear)
 
         game_world.add_collision_pair('char:spear', p1, None)
         game_world.add_collision_pair('char:spear', p2, None)
