@@ -24,7 +24,7 @@ def update():
 
 def draw():
     clear_canvas()
-    # 무기 선택같은건 나중에 추가하자.
+    image.draw(1280, 720)
     update_canvas()
 
 def handle_events():
