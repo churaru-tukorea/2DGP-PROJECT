@@ -1763,8 +1763,8 @@ class CharacterAI:
 
         # 3. 타이밍 윈도우 (공격 전 0.25초 ~ 공격 후 0.05초)
         remain = fire_time - now
-        REACT_EARLY = 0.25
-        REACT_LATE = -0.05
+        REACT_EARLY = 0.18
+        REACT_LATE = -0.12
 
         if not (REACT_LATE <= remain <= REACT_EARLY):
             return BehaviorTree.FAIL  # 아직 반응할 때가 아님
