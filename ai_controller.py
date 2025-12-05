@@ -520,15 +520,16 @@ class CharacterAI:
         if not self.stage or actor is None:
             return None
 
-        platforms = self._build_platforms()
+        # 네비게이션과 공중 판정에서 쓰는 것과 동일한 기준 사용
+        plat = self._platform_under_point(actor.x, actor.y)
+        if plat:
+            return plat
 
-        # 네비게이션과 동일한 Robust 판정
-        p = scramble_nav.find_platform_under_point(platforms, actor.x, actor.y)
-        if p: return p
-        p = scramble_nav.find_platform_under_point(platforms, actor.x - 30, actor.y)
-        if p: return p
-        p = scramble_nav.find_platform_under_point(platforms, actor.x + 30, actor.y)
-        return p
+        plat = self._platform_under_point(actor.x - 30, actor.y)
+        if plat:
+            return plat
+
+        return self._platform_under_point(actor.x + 30, actor.y)
 
     def _is_actor_in_air(self, actor):
         # 바닥 (floor)용 ground_y는 그대로
