@@ -1453,15 +1453,20 @@ class CharacterAI:
         me_plat = self._get_platform_for(me)
         enemy_plat = self._get_platform_for(enemy)
 
-        # 플랫폼 정보를 못 얻으면 네비 불가 → CHASE 포기
-        if me_plat is None or enemy_plat is None:
-            self._switch_nav_mode('NONE')
-            return BehaviorTree.FAIL
+        # 아직 chase_plan 이 없는 경우에만 플랫폼을 엄격하게 체크
+        if self.chase_plan is None:
+            # 플랫폼 정보를 못 얻으면 네비 불가 → CHASE 포기
+            if me_plat is None or enemy_plat is None:
+                self._dbg("CHASE: cannot start (platform None) → abort")
+                self._switch_nav_mode('NONE')
+                return BehaviorTree.FAIL
 
-        # 혹시 같은 플랫폼이면 굳이 네비 할 필요 없음 → 성공으로 보고 종료
-        if me_plat.name == enemy_plat.name:
-            self._switch_nav_mode('NONE')
-            return BehaviorTree.SUCCESS
+            # 같은 플랫폼이면 굳이 네비 할 필요 없음 → 성공으로 보고 종료
+            if me_plat.name == enemy_plat.name:
+                self._dbg("CHASE: same platform at start → no need to chase")
+                self._switch_nav_mode('NONE')
+                return BehaviorTree.SUCCESS
+
 
         # 3. 최초 진입: 적 위치 스냅샷 고정
         #    (아이템 쫓을 때 item_target 고정하는 느낌으로)
