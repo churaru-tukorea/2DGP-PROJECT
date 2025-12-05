@@ -520,23 +520,25 @@ class CharacterAI:
         if not self.stage or actor is None:
             return None
 
-        # 네비게이션과 공중 판정에서 쓰는 것과 동일한 기준 사용
-        plat = self._platform_under_point(actor.x, actor.y)
-        if plat:
-            return plat
-
-        plat = self._platform_under_point(actor.x - 30, actor.y)
-        if plat:
-            return plat
-
-        return self._platform_under_point(actor.x + 30, actor.y)
+        # 기본 샘플링 포인트들 (정중앙, 좌/우 30px)
+        sample_xs = (actor.x, actor.x - 30, actor.x + 30)
+        for sx in sample_xs:
+            p = self._platform_under_point(sx, actor.y)
+            if p:
+                return p
+        return None
 
     def _is_actor_in_air(self, actor):
-        # 바닥 (floor)용 ground_y는 그대로
-        if actor.y <= getattr(actor, 'ground_y', 90) + 10:
+        if actor is None:
             return False
 
-        plat = self._platform_under_point(actor.x, actor.y)
+        # 1) 바닥 기준: ground_y 근처면 지상 취급
+        ground_y = getattr(actor, 'ground_y', 90)
+        if actor.y <= ground_y + 10:
+            return False
+
+        # 2) 플랫폼 기준: _get_platform_for()를 그대로 재사용
+        plat = self._get_platform_for(actor)
         return plat is None
 
     def _dbg(self, msg: str): #아오 디버그시치
@@ -1801,29 +1803,29 @@ class CharacterAI:
         me_plat = self._get_platform_for(me)
         enemy_plat = self._get_platform_for(enemy)
 
-        # NONE or WAIT (눈치 보기)
+        # NONE or WAIT (눈치 보기/도망 준비 상태)
         if self.flee_state in ('NONE', 'WAIT'):
-            should_flee = False
-            # 같은 플랫폼 + 가까움(200px) -> 도망 시작
+
+            # 1) 같은 플랫폼 + 충분히 가까우면 → EDGE_RUN 시작
             if me_plat and enemy_plat and me_plat.name == enemy_plat.name:
                 dist = abs(me.x - enemy.x)
                 if dist < 200.0:
                     print(f"[FLEE-START] 적 접근 감지! Dist:{dist:.1f}. EDGE_RUN 시작.")
                     self.flee_state = 'EDGE_RUN'
-                    # 적 반대 방향
                     self.flee_escape_dir = -1 if enemy.x > me.x else 1
-            if should_flee:
-                # (도망 시작 로직 기존 유지...)
-                print(f"[FLEE-START] 적 접근 감지! Dist:{dist:.1f}. EDGE_RUN 시작.")
-                self.flee_state = 'EDGE_RUN'
-                self.flee_escape_dir = -1 if enemy.x > me.x else 1
-                self.flee_edge_hold_since = 0.0 # 모서리 버티기 타이머 리셋
-            else:
-                # 도망칠 필요가 없어지면(적이 멀어짐), 플랜을 완전히 초기화
-                # 그냥 멈추기만 하면 옛날 플랜이 남아서 나중에 머리를 박음.
-                if self.flee_plan is not None:
-                    self._reset_flee_plan()
+                    self.flee_edge_hold_since = 0.0
+                    return BehaviorTree.RUNNING
 
+            # 2) 여기까지 왔으면 지금은 도망 필요 없음
+            #    → 남아 있던 플랜과 상태를 깨끗하게 정리
+            if self.flee_plan is not None:
+                self._reset_flee_plan()
+
+            # 굳이 nav_mode 를 FLEE 로 유지할 이유도 거의 없으니 NONE 으로 내리는 쪽이 안전
+            if self.nav_mode == 'FLEE':
+                self._switch_nav_mode('NONE')
+
+            self._set_move_dir(0)
             return BehaviorTree.RUNNING
 
         # EDGE_RUN (끝으로 달리기)
@@ -2085,3 +2087,4 @@ class CharacterAI:
                                     self._set_move_dir(seg.dir)
 
                             return BehaviorTree.RUNNING
+
