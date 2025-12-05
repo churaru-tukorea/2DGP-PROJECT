@@ -2104,6 +2104,16 @@ class CharacterAI:
                                 return BehaviorTree.RUNNING
 
                             self._set_move_dir(0)
+                            # 지상 락 상태라면 강제로 MOVE 상태로 깨우기
+                            if not self._is_in_air():
+                                cur_state = me.state_machine.cur_state
+                                ground_locked_states = (me.ATTACK_FIRE, me.ATTACK_SPEAR, me.PARRY_HOLD)
+                                if cur_state in ground_locked_states:
+                                    self._dbg(f"FLEE-jump: BREAK_TO_MOVE from {cur_state.__class__.__name__}")
+                                    try:
+                                        me.state_machine.handle_state_event(('BREAK_TO_MOVE', None))
+                                    except Exception:
+                                        pass
                             self._tap_jump(hold_time)
 
                             if seg.jump_template:
