@@ -673,6 +673,7 @@ class Character:
 
             # 파링 중이면 칼을 튕김
             if getattr(self, 'action', '') == 'parry_hold' or getattr(self, 'parry_active', False):
+
                 try:
                     # 다음 충돌 루프에서 이 칼은 공격 판정에서 제외되도록 락을 건다
                     sword._parry_lock = True
