@@ -551,7 +551,18 @@ class CharacterAI:
         # 더 이상 유효한 점프가 아니면 nav_mode 정보도 초기화
         if self.jump_end_time <= 0.0:
             self.jump_nav_mode = 'NONE'
+    
+    def _update_jump_hold(self) -> None:#이거 튀다가 점프용으로 전용함수 만들엉버려 그냥
 
+        if self.jump_end_time <= 0.0:
+            return
+
+        now = get_time()
+        if now >= self.jump_end_time:
+            # 여기서만 점프 키를 뗀다
+            self._send_key(SDLK_KP_1, False)
+            self._set_jump_timer(0.0, "jump_hold_expire")
+    
     def _reset_flee_plan(self): #이게 기조가 바뀔 때마다 reset하는 플랜이기 때문에...
         self.flee_plan = None
         self.flee_segment_index = 0
