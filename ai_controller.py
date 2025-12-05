@@ -1836,11 +1836,14 @@ class CharacterAI:
                 dist = target_x - me.x
                 print(
                     f"[EDGE] Plat:{me_plat.name} | MeX:{me.x:.1f} Target:{target_x:.1f} | Dist:{dist:.1f} Tol:{tol:.1f}")
-                if abs(dist) <= tol * 1.5:
-                    print(f"   -> [ARRIVED] 도착! PLAN_RUN으로 전환.")
+                if abs(dist) <= tol:
+                    print(f"   -> [ARRIVED] 도착! EDGE_HOLD로 전환.")
                     self._set_move_dir(0)
-                    self.flee_state = 'PLAN_RUN'  # 도착 -> 다음 플랜 준비
-                    self.flee_plan = None  # 플랜 재생성 트리거
+                    # 모서리 버티기 시작
+                    self.flee_state = 'EDGE_HOLD'
+                    self.flee_edge_hold_since = get_time()
+                    # 플랫폼 갈아타기 플랜은 아직 만들지 않음
+                    self.flee_plan = None
                 else:
                     move = 1 if dist > 0 else -1
                     print(f"   -> [MOVING] Dir:{move}")
@@ -1850,17 +1853,13 @@ class CharacterAI:
                 print(f"[EDGE-LOST] Plat is None! InAir:{in_air}")
                 # 플랫폼 정보가 'None'이 됨 (경계선 넘음)
                 if not self._is_in_air():
-                    print(f"   -> [EDGE-DETECTED] 땅에는 있음. 끝으로 간주. PLAN_RUN 전환.")
+                    print(f"   -> [EDGE-DETECTED] 땅에는 있음. EDGE_HOLD로 간주.")
                     # "땅에는 있는데 플랫폼 이름은 모름" == "아슬아슬한 끝에 도착함"
-                    # -> 성공으로 간주하고 다음 단계 진행
+                    # -> 모서리에 도착한 것으로 보고 EDGE_HOLD 상태로
                     self._set_move_dir(0)
-                    self.flee_state = 'PLAN_RUN'
+                    self.flee_state = 'EDGE_HOLD'
+                    self.flee_edge_hold_since = get_time()
                     self.flee_plan = None
-                else:
-                    print(f"   -> [FAIL] 진짜 떨어짐. 리셋.")
-                    # 진짜로 공중에 떴음 (떨어짐) -> 리셋
-                    self._reset_flee_plan()
-                    return BehaviorTree.FAIL
 
             return BehaviorTree.RUNNING
 
