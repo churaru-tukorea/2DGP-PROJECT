@@ -1785,15 +1785,19 @@ class CharacterAI:
             self._set_move_dir(0)
             return BehaviorTree.RUNNING
 
-        # 1. 모드 진입 (공중이면 진입 실패 -> 기존 행동 유지하거나 Fallback)
+            # 모드 진입 실패(공중 등) 시 FAIL 리턴 금지 -> Fallback 실행 차단!
         if self._switch_nav_mode('FLEE') == BehaviorTree.FAIL:
-            return BehaviorTree.FAIL
+            self._set_move_dir(0)
+            # FAIL을 반환하면 BT가 다음 노드(단순 도망)를 실행해버려서 떨림 발생.
+            # RUNNING을 반환해서 "이번 프레임은 그냥 쉰다"로 처리.
+            return BehaviorTree.RUNNING
 
         me_plat = self._get_platform_for(me)
         enemy_plat = self._get_platform_for(enemy)
 
         # NONE or WAIT (눈치 보기)
         if self.flee_state in ('NONE', 'WAIT'):
+            should_flee = False
             # 같은 플랫폼 + 가까움(200px) -> 도망 시작
             if me_plat and enemy_plat and me_plat.name == enemy_plat.name:
                 dist = abs(me.x - enemy.x)
@@ -1802,8 +1806,16 @@ class CharacterAI:
                     self.flee_state = 'EDGE_RUN'
                     # 적 반대 방향
                     self.flee_escape_dir = -1 if enemy.x > me.x else 1
+            if should_flee:
+                # (도망 시작 로직 기존 유지...)
+                print(f"[FLEE-START] 적 접근 감지! Dist:{dist:.1f}. EDGE_RUN 시작.")
+                self.flee_state = 'EDGE_RUN'
+                self.flee_escape_dir = -1 if enemy.x > me.x else 1
             else:
-                self._set_move_dir(0)  # 안전함
+                # 도망칠 필요가 없어지면(적이 멀어짐), 플랜을 완전히 초기화
+                # 그냥 멈추기만 하면 옛날 플랜이 남아서 나중에 머리를 박음.
+                if self.flee_plan is not None:
+                    self._reset_flee_plan()
 
             return BehaviorTree.RUNNING
 
@@ -1947,9 +1959,9 @@ class CharacterAI:
 
                         # --- (1) 착지 확인 (Landing Check) ---
                         is_falling = getattr(me, 'vy', 0) <= 0
-                        if not self._is_in_air() and is_falling:
+                        # 점프 타이머 끝난 후 착지 체크
+                        if not self._is_in_air() and is_falling and (now >= self.jump_end_time):
                             if land_plat and abs(me.y - land_plat.T) < 60.0:
-                                # 착지 성공
                                 self._set_jump_timer(0.0, "reset_flee_plan")
                                 self._send_key(SDLK_KP_1, False)
                                 self._set_move_dir(0)
