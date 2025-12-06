@@ -281,12 +281,12 @@ class CharacterAI:
         me_plat = self._get_platform_for(self.me) if self.me else None
         enemy_plat = self._get_platform_for(self.enemy) if self.enemy else None
 
-        self._dbg(
-            f"TICK: nav_mode={self.nav_mode} "
-            f"me=({self.me.x:.1f},{self.me.y:.1f},{me_plat.name if me_plat else 'None'}) "
-            f"enemy=({self.enemy.x:.1f},{self.enemy.y:.1f},{enemy_plat.name if enemy_plat else 'None'}) "
-            f"in_air={self._is_in_air()} jump_end={self.jump_end_time:.2f}"
-        )
+        #self._dbg(
+        #    f"TICK: nav_mode={self.nav_mode} "
+        #    f"me=({self.me.x:.1f},{self.me.y:.1f},{me_plat.name if me_plat else 'None'}) "
+        #    f"enemy=({self.enemy.x:.1f},{self.enemy.y:.1f},{enemy_plat.name if enemy_plat else 'None'}) "
+        #    f"in_air={self._is_in_air()} jump_end={self.jump_end_time:.2f}"
+        #)
 
         now = get_time()
 
@@ -306,7 +306,7 @@ class CharacterAI:
 
         # 점프 키 홀드 해제
         if self.jump_end_time > 0 and now >= self.jump_end_time:
-            self._dbg(f"JUMP_TIMER: expire at t={now:.2f}, jump_end={self.jump_end_time:.2f}")
+            #self._dbg(f"JUMP_TIMER: expire at t={now:.2f}, jump_end={self.jump_end_time:.2f}")
             self._send_key(SDLK_KP_1, False)
             self._set_jump_timer(0.0, "update_expire")
 
@@ -348,14 +348,14 @@ class CharacterAI:
 
 
         if in_air:
-            self._dbg(f"_tap_jump: SKIP (already in air), nav_mode={self.nav_mode}, y={self.me.y:.1f}")
+            #self._dbg(f"_tap_jump: SKIP (already in air), nav_mode={self.nav_mode}, y={self.me.y:.1f}")
             return
 
         if self.jump_end_time > 0.0 and now < self.jump_end_time:
-            self._dbg(f"_tap_jump: SKIP (already holding), jump_end={self.jump_end_time:.2f}, now={now:.2f}")
+            #self._dbg(f"_tap_jump: SKIP (already holding), jump_end={self.jump_end_time:.2f}, now={now:.2f}")
             return
 
-        self._dbg(f"_tap_jump: PRESS jump (hold={hold_duration:.2f}), nav_mode={self.nav_mode}, y={self.me.y:.1f}")
+        #self._dbg(f"_tap_jump: PRESS jump (hold={hold_duration:.2f}), nav_mode={self.nav_mode}, y={self.me.y:.1f}")
         self._send_key(SDLK_KP_1, True)
         self._set_jump_timer(now + hold_duration, "tap_jump")
         self.jump_nav_mode = self.nav_mode  # 이렇게 기억하자
@@ -543,10 +543,11 @@ class CharacterAI:
         return plat is None
 
     def _dbg(self, msg: str): #아오 디버그시치
-        print(f"[AI-DBG] {msg}")
+        pass
+        #print(f"[AI-DBG] {msg}")
 
     def _set_jump_timer(self, new_value: float, reason: str):
-        self._dbg(f"JUMP_TIMER: {self.jump_end_time:.2f} -> {new_value:.2f} ({reason}, nav_mode={self.nav_mode})")
+        #self._dbg(f"JUMP_TIMER: {self.jump_end_time:.2f} -> {new_value:.2f} ({reason}, nav_mode={self.nav_mode})")
         self.jump_end_time = new_value
         # 더 이상 유효한 점프가 아니면 nav_mode 정보도 초기화
         if self.jump_end_time <= 0.0:
@@ -756,32 +757,32 @@ class CharacterAI:
     # Condition: 적이 다른 플랫폼에 있는가?
     def cond_enemy_on_different_platform(self):
         if self.stage is None or self.me is None or self.enemy is None:
-            self._dbg("cond_enemy_on_diff: stage/me/enemy None → FAIL")
+            #self._dbg("cond_enemy_on_diff: stage/me/enemy None → FAIL")
             return BehaviorTree.FAIL
 
         me_plat = self._get_platform_for(self.me)
         enemy_plat = self._get_platform_for(self.enemy)
 
-        self._dbg(
-            f"cond_enemy_on_diff: me_plat={me_plat.name if me_plat else 'None'}, "
-            f"enemy_plat={enemy_plat.name if enemy_plat else 'None'}"
-        )
+        #self._dbg(
+        #    f"cond_enemy_on_diff: me_plat={me_plat.name if me_plat else 'None'}, "
+        #    f"enemy_plat={enemy_plat.name if enemy_plat else 'None'}"
+        #)
 
         # 이미 CHASE 플랜이 돌아가고 있고, 그 와중에 공중(plat=None)이면 계속 CHASE 허용
         if me_plat is None or enemy_plat is None:
             if self.nav_mode == 'CHASE' and self.chase_plan is not None:
-                self._dbg("cond_enemy_on_diff: me or enemy plat None, but CHASE in progress → keep chasing (SUCCESS)")
+                #self._dbg("cond_enemy_on_diff: me or enemy plat None, but CHASE in progress → keep chasing (SUCCESS)")
                 return BehaviorTree.SUCCESS
             return BehaviorTree.FAIL
 
         # 다른 플랫폼이면 CHASE 진입/유지
         if me_plat.name != enemy_plat.name:
-            self._dbg("cond_enemy_on_diff: DIFFERENT → SUCCESS")
+            #self._dbg("cond_enemy_on_diff: DIFFERENT → SUCCESS")
             return BehaviorTree.SUCCESS
 
         # 같은 플랫폼이면, 혹시 남아 있던 CHASE 상태 정리
         if self.nav_mode == 'CHASE':
-            self._dbg("cond_enemy_on_diff: SAME while CHASE → switch NONE")
+            #self._dbg("cond_enemy_on_diff: SAME while CHASE → switch NONE")
             self._switch_nav_mode('NONE')
         return BehaviorTree.FAIL
 
@@ -1025,18 +1026,18 @@ class CharacterAI:
         seg = self.scramble_plan.segments[self.scramble_segment_index]
 
         # 디버그 출력
-        print(f"[AI-RUN] Seg[{self.scramble_segment_index}] {seg.kind.upper()} | "
-              f"Me:({self.me.x:.1f}, {self.me.y:.1f}) | Dir:{self.me.move_dir}")
+        #print(f"[AI-RUN] Seg[{self.scramble_segment_index}] {seg.kind.upper()} | "
+        #      f"Me:({self.me.x:.1f}, {self.me.y:.1f}) | Dir:{self.me.move_dir}")
 
         if seg.kind == 'walk':
             dist = seg.target_x - self.me.x
-            print(f"       Target X: {seg.target_x:.1f} | Dist: {dist:.1f} | Blocked? {dist * self.me.move_dir < 0}")
+            #print(f"       Target X: {seg.target_x:.1f} | Dist: {dist:.1f} | Blocked? {dist * self.me.move_dir < 0}")
             # Blocked? 가 True면 벽에 막혀서 못 가는데 걷고 있다는 뜻
 
         elif seg.kind == 'jump':
             tx1, tx2 = seg.takeoff_range
             in_range = (tx1 <= self.me.x <= tx2)
-            print(f"       Jump Range: {tx1:.1f}~{tx2:.1f} | InRange: {in_range} | Air: {self._is_in_air()}")
+            #print(f"       Jump Range: {tx1:.1f}~{tx2:.1f} | InRange: {in_range} | Air: {self._is_in_air()}")
         # ---------------------------------------------------
         # [A] 걷기 (Walk)
         if seg.kind == 'walk':
@@ -1183,16 +1184,16 @@ class CharacterAI:
                 if draw_target_x is None and seg.takeoff_range:
                     draw_target_x = (seg.takeoff_range[0] + seg.takeoff_range[1]) * 0.5
 
-            if draw_target_x is not None:
-                draw_line(draw_target_x, 0, draw_target_x, 1000, 0, 255, 0)
+            #if draw_target_x is not None:
+            #    draw_line(draw_target_x, 0, draw_target_x, 1000, 0, 255, 0)
             # -------------------------------
 
             # 점프 발사대 박스 (기존 유지)
-            if seg.kind == 'jump' and seg.takeoff_range:
-                x1, x2 = seg.takeoff_range
-                current_plat = platforms.get(seg.platform)
-                y = current_plat.T if current_plat else self.me.y
-                draw_rectangle(x1, y - 5, x2, y + 5)
+            #if seg.kind == 'jump' and seg.takeoff_range:
+            #    x1, x2 = seg.takeoff_range
+            #    current_plat = platforms.get(seg.platform)
+            #    y = current_plat.T if current_plat else self.me.y
+            #    draw_rectangle(x1, y - 5, x2, y + 5)
 
     def act_rush_attack(self):
         me_plat = self._get_platform_for(self.me)
@@ -1271,7 +1272,7 @@ class CharacterAI:
 
             # 실패 시 fallback
             if self.item_plan is None or not self.item_plan.segments:
-                print("[Item-Nav] Plan Failed. Simple Move.")
+                #print("[Item-Nav] Plan Failed. Simple Move.")
 
                 # 실패 카운트 증가
                 fail_count = getattr(self, 'item_plan_fail_count', 0) + 1
@@ -1279,7 +1280,7 @@ class CharacterAI:
 
                 # N프레임 이상 계속 실패하면 이 타겟은 포기
                 if fail_count > 30:
-                    print("[Item-Nav] Plan keeps failing. Drop this item target.")
+                    #print("[Item-Nav] Plan keeps failing. Drop this item target.")
                     self._reset_item_plan()
                     self.item_target = None
                     self.item_plan_fail_count = 0
@@ -1296,7 +1297,7 @@ class CharacterAI:
         # 3. 도착 확인
         if self.item_segment_index >= len(self.item_plan.segments):
             if abs(me.y - target.y) > 80.0:
-                print("[Item-Nav] Height Mismatch at End. Reset.")
+                #print("[Item-Nav] Height Mismatch at End. Reset.")
                 self._reset_item_plan()
                 return BehaviorTree.RUNNING
 
@@ -1437,10 +1438,10 @@ class CharacterAI:
     #  - 적이 다른 플랫폼에 올라간 "그 시점의 위치"를 타깃으로 고정
     #  - 그 이후 적이 움직이는 건 고려하지 않음
     def act_chase_enemy_nav(self):
-        self._dbg(
-            f"CHASE: enter, plan={'None' if self.chase_plan is None else 'EXISTS'}, "
-            f"nav_mode={self.nav_mode}"
-        )
+        #self._dbg(
+        #    f"CHASE: enter, plan={'None' if self.chase_plan is None else 'EXISTS'}, "
+        #    f"nav_mode={self.nav_mode}"
+        #)
 
 
         #플랫폼 네비게이션으로 적 쫓기 (아이템 네비와 거의 같은 패턴)
@@ -1480,13 +1481,13 @@ class CharacterAI:
         if self.chase_plan is None:
             # 플랫폼 정보를 못 얻으면 네비 불가 → CHASE 포기
             if me_plat is None or enemy_plat is None:
-                self._dbg("CHASE: cannot start (platform None) → abort")
+                #self._dbg("CHASE: cannot start (platform None) → abort")
                 self._switch_nav_mode('NONE')
                 return BehaviorTree.FAIL
 
             # 같은 플랫폼이면 굳이 네비 할 필요 없음 → 성공으로 보고 종료
             if me_plat.name == enemy_plat.name:
-                self._dbg("CHASE: same platform at start → no need to chase")
+                #self._dbg("CHASE: same platform at start → no need to chase")
                 self._switch_nav_mode('NONE')
                 return BehaviorTree.SUCCESS
 
@@ -1586,8 +1587,8 @@ class CharacterAI:
         # 7-a. walk 세그먼트: target_x 까지 수평 이동
         if seg.kind == 'walk':
             if seg.target_x is None:
-                self._dbg(f"CHASE-walk: x={me.x:.1f}, target_x={seg.target_x}, "
-                          f"dir={1 if seg.target_x and seg.target_x > me.x else -1}")
+                #self._dbg(f"CHASE-walk: x={me.x:.1f}, target_x={seg.target_x}, "
+                #          f"dir={1 if seg.target_x and seg.target_x > me.x else -1}")
                 # 방어 코드: target_x 가 없으면 그냥 다음 세그먼트로 넘어간다
                 self.chase_segment_index += 1
                 self.chase_segment_start_time = now
@@ -1714,7 +1715,7 @@ class CharacterAI:
                     ground_locked_states = (me.ATTACK_FIRE, me.ATTACK_SPEAR, me.PARRY_HOLD)
 
                     if cur_state in ground_locked_states:
-                        self._dbg(f"CHASE-jump: BREAK_TO_MOVE from {cur_state.__class__.__name__}")
+                        #self._dbg(f"CHASE-jump: BREAK_TO_MOVE from {cur_state.__class__.__name__}")
                         try:
                             me.state_machine.handle_state_event(('BREAK_TO_MOVE', None))
                         except Exception:
@@ -1845,7 +1846,7 @@ class CharacterAI:
             if me_plat and enemy_plat and me_plat.name == enemy_plat.name:
                 dist = abs(me.x - enemy.x)
                 if dist < 200.0:
-                    print(f"[FLEE-START] 적 접근 감지! Dist:{dist:.1f}. EDGE_RUN 시작.")
+                    #(f"[FLEE-START] 적 접근 감지! Dist:{dist:.1f}. EDGE_RUN 시작.")
                     self.flee_state = 'EDGE_RUN'
                     self.flee_escape_dir = -1 if enemy.x > me.x else 1
                     self.flee_edge_hold_since = 0.0
@@ -1873,10 +1874,10 @@ class CharacterAI:
                 # 도착 확인 (Tolerance 사용)
                 tol = self._pos_tolerance(base=10.0)
                 dist = target_x - me.x
-                print(
-                    f"[EDGE] Plat:{me_plat.name} | MeX:{me.x:.1f} Target:{target_x:.1f} | Dist:{dist:.1f} Tol:{tol:.1f}")
+                #print(
+                #    f"[EDGE] Plat:{me_plat.name} | MeX:{me.x:.1f} Target:{target_x:.1f} | Dist:{dist:.1f} Tol:{tol:.1f}")
                 if abs(dist) <= tol:
-                    print(f"   -> [ARRIVED] 도착! EDGE_HOLD로 전환.")
+                    #print(f"   -> [ARRIVED] 도착! EDGE_HOLD로 전환.")
                     self._set_move_dir(0)
                     # 모서리 버티기 시작
                     self.flee_state = 'EDGE_HOLD'
@@ -1885,14 +1886,14 @@ class CharacterAI:
                     self.flee_plan = None
                 else:
                     move = 1 if dist > 0 else -1
-                    print(f"   -> [MOVING] Dir:{move}")
+                    #print(f"   -> [MOVING] Dir:{move}")
                     self._set_move_dir(move)
             else:
                 in_air = self._is_in_air()
-                print(f"[EDGE-LOST] Plat is None! InAir:{in_air}")
+                #print(f"[EDGE-LOST] Plat is None! InAir:{in_air}")
                 # 플랫폼 정보가 'None'이 됨 (경계선 넘음)
                 if not self._is_in_air():
-                    print(f"   -> [EDGE-DETECTED] 땅에는 있음. EDGE_HOLD로 간주.")
+                    #print(f"   -> [EDGE-DETECTED] 땅에는 있음. EDGE_HOLD로 간주.")
                     # "땅에는 있는데 플랫폼 이름은 모름" == "아슬아슬한 끝에 도착함"
                     # -> 모서리에 도착한 것으로 보고 EDGE_HOLD 상태로
                     self._set_move_dir(0)
@@ -1915,7 +1916,7 @@ class CharacterAI:
 
             # 이미 플랫폼이 달라져 있으면(떨어졌거나 올라갔거나) -> 도망 성공으로 보고 종료
             if me_plat.name != enemy_plat.name:
-                print(f"[EDGE-HOLD] 다른 플랫폼으로 분리됨({me_plat.name} vs {enemy_plat.name}). WAIT 전환.")
+                #print(f"[EDGE-HOLD] 다른 플랫폼으로 분리됨({me_plat.name} vs {enemy_plat.name}). WAIT 전환.")
                 self._set_move_dir(0)
                 self.flee_state = 'WAIT'
                 self.flee_plan = None
@@ -1927,7 +1928,7 @@ class CharacterAI:
             # “충분히 멀다”면: 그냥 모서리에서 가만히 있음 (거리 벌리기 성공)
             safe_dist = 230.0  # 적당히 도망 시작 거리(200)보다 조금 넉넉하게
             if dist >= safe_dist:
-                print(f"[EDGE-HOLD] 충분히 멀어짐(dist={dist:.1f}). 모서리에서 대기.")
+                #print(f"[EDGE-HOLD] 충분히 멀어짐(dist={dist:.1f}). 모서리에서 대기.")
                 self._set_move_dir(0)
                 # 더 이상 위협 없으면 그냥 WAIT로 보내도 됨
                 self.flee_state = 'WAIT'
@@ -1942,7 +1943,7 @@ class CharacterAI:
             min_hold_time = 0.3         # 최소 0.3초 정도는 버텨 본 뒤에 도망
 
             if dist < escape_trigger_dist and hold_time > min_hold_time:
-                print(f"[EDGE-HOLD] 계속 압박(dist={dist:.1f}, t={hold_time:.2f}). PLAN_RUN으로 전환.")
+                #print(f"[EDGE-HOLD] 계속 압박(dist={dist:.1f}, t={hold_time:.2f}). PLAN_RUN으로 전환.")
                 self._set_move_dir(0)
                 self.flee_state = 'PLAN_RUN'
                 self.flee_plan = None
@@ -1955,7 +1956,7 @@ class CharacterAI:
 
             if abs(me.x - edge_x) > tol:
                 move = 1 if edge_x > me.x else -1
-                print(f"[EDGE-HOLD] 모서리 재보정. Dir:{move}")
+                #(f"[EDGE-HOLD] 모서리 재보정. Dir:{move}")
                 self._set_move_dir(move)
             else:
                 self._set_move_dir(0)
@@ -1973,14 +1974,14 @@ class CharacterAI:
                 # 여기서 me_plat이 없으면 WAIT로 보내는데,
                 # 만약 바로 WAIT로 갔다가 다시 EDGE_RUN으로 오면 그게 떨림의 원인임.
                 if not me_plat:
-                    print(f"[PLAN] Plat None (Edge). 대기 상태(WAIT)로 전환.")
+                    #print(f"[PLAN] Plat None (Edge). 대기 상태(WAIT)로 전환.")
                     self.flee_state = 'WAIT'
                     self._set_move_dir(0)
                     return BehaviorTree.RUNNING
 
                 # 동적 플랫폼 선정 (현재 플랫폼 제외)
                 target_name = self._get_random_flee_target(me_plat.name if me_plat else "")
-                print(f"[PLAN] 새 타겟 선정: {target_name}")
+                #print(f"[PLAN] 새 타겟 선정: {target_name}")
 
                 # 목적지 좌표 계산
                 platforms = self._build_platforms()
@@ -1998,7 +1999,7 @@ class CharacterAI:
 
                 # 실패 시 대기 상태로
                 if not self.flee_plan or not self.flee_plan.segments:
-                    print(f"[PLAN] 경로 생성 실패. WAIT로.")
+                    #print(f"[PLAN] 경로 생성 실패. WAIT로.")
                     self.flee_state = 'WAIT'
                     self._set_move_dir(0)
                     return BehaviorTree.RUNNING
@@ -2120,7 +2121,7 @@ class CharacterAI:
                                 cur_state = me.state_machine.cur_state
                                 ground_locked_states = (me.ATTACK_FIRE, me.ATTACK_SPEAR, me.PARRY_HOLD)
                                 if cur_state in ground_locked_states:
-                                    self._dbg(f"FLEE-jump: BREAK_TO_MOVE from {cur_state.__class__.__name__}")
+                                    #self._dbg(f"FLEE-jump: BREAK_TO_MOVE from {cur_state.__class__.__name__}")
                                     try:
                                         me.state_machine.handle_state_event(('BREAK_TO_MOVE', None))
                                     except Exception:
