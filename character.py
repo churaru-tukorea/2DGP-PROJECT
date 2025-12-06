@@ -574,7 +574,7 @@ class Character:
         self.state_machine.draw()
         self._draw_shield_if_parry()
         self.draw_sweat_overlay()
-        draw_rectangle(*self.get_bb())
+        #draw_rectangle(*self.get_bb())
 
         # 머리 위 작은 박스(기존 위치 유지)
         hx1, hy1 = self.x - 8, self.y + self.draw_h // 2 + 18
@@ -791,7 +791,7 @@ class Character:
 
         if self._shield_aabb:
             l, b, r, t = self._shield_aabb
-            draw_rectangle(l, b, r, t)
+            #draw_rectangle(l, b, r, t)
 
         if self._shield_obb:
             for i in range(4):

@@ -60,7 +60,7 @@ class Sword:
 
     def draw(self):
         l, b, r, t = self.get_bb()
-        draw_rectangle(l, b, r, t)
+        #draw_rectangle(l, b, r, t)
         cs = self.get_obb()
         for i in range(4):
              x1,y1 = cs[i]; x2,y2 = cs[(i+1)%4]
@@ -89,7 +89,7 @@ class Sword:
             self.image.clip_composite_draw(0, 0, self.image.w, self.image.h,
                                            rad, flip, cx, cy, dw, dh)
             # 손 지점 디버그(작은 점)
-            draw_rectangle(hx - 2, hy - 2, hx + 2, hy + 2)
+            #draw_rectangle(hx - 2, hy - 2, hx + 2, hy + 2)
             return
 
     def get_obb(self):

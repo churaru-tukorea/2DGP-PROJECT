@@ -51,8 +51,8 @@ class StageColliders:
         if not self.debug:
             return
         # 디버그: 스크린 AABB 외곽선을 그려 정렬 확인
-        for _, _, Lp, Bp, Rp, Tp in self.screen_boxes:
-            draw_rectangle(Lp, Bp, Rp, Tp)
+        #for _, _, Lp, Bp, Rp, Tp in self.screen_boxes:
+        #    draw_rectangle(Lp, Bp, Rp, Tp)
 
     # 충돌 단계에서 쓸 수 있도록 getter도 준비
     def get_screen_boxes(self):

@@ -68,7 +68,7 @@ class AttackClockItem:
     def draw(self):
         self.image.clip_draw(0, 0, self.image.w, self.image.h,
                              self.x, self.y, self.draw_w, self.draw_h)
-        draw_rectangle(*self.get_bb())
+        #draw_rectangle(*self.get_bb())
         pass
 
     def get_bb(self):
