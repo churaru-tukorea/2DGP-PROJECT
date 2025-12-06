@@ -165,6 +165,8 @@ def init():
 
 
 
+
+
 def update():
     global item_spawn_time, item_spawned, stage_colliders, item_spawn_interval
 

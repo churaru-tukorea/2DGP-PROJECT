@@ -1,4 +1,4 @@
-from pico2d import draw_rectangle
+from pico2d import draw_rectangle, load_music
 import stage_layout  # STAGE_SOURCE_SIZE, STAGE_BOXES 사용
 
 class StageColliders:
@@ -9,6 +9,10 @@ class StageColliders:
         self._cache_key = None
         self.screen_boxes = []  # [(name, type, Lp,Bp,Rp,Tp), ...]
         self.rebuild()
+
+        self.bgm = load_music('lof.mp3')
+        self.bgm.set_volume(32)
+        self.bgm.repeat_play()
 
     def _layout_key(self):
         s, dx, dy, _, _ = self.boss_stage_layer.get_fit_params()
