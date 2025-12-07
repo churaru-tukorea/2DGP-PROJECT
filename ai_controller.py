@@ -2055,7 +2055,7 @@ class CharacterAI:
 
                         # --- (0) 예전 점프 타이머 청소 ---
                         if (not self._is_in_air()) and self.jump_end_time > 0.0 and now < self.jump_end_time:
-                            self._send_key(SDLK_KP_1, False)
+                            #self._send_key(SDLK_KP_1, False)
                             self._set_jump_timer(0.0, "flee_clear_stale_jump")
 
                         # --- (1) 착지 확인 (Landing Check) ---
