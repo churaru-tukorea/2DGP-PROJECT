@@ -95,6 +95,11 @@ class CharacterAI:
         self.flee_edge_hold_since = 0.0
 
 
+        # FLEE에서도 세그먼트 스턱 타임아웃 사용
+        self.flee_segment_start_time = 0.0
+        self.flee_stuck_timeout = 2.0
+
+
         self._build_bt()
 
     def _build_bt(self):
@@ -1922,28 +1927,15 @@ class CharacterAI:
                 self.flee_plan = None
                 return BehaviorTree.RUNNING
 
-            # 같은 플랫폼에 아직 같이 있음 -> x 거리 보고 판단
-            dist = abs(me.x - enemy.x)
-
-            # “충분히 멀다”면: 그냥 모서리에서 가만히 있음 (거리 벌리기 성공)
-            safe_dist = 230.0  # 적당히 도망 시작 거리(200)보다 조금 넉넉하게
-            if dist >= safe_dist:
-                #print(f"[EDGE-HOLD] 충분히 멀어짐(dist={dist:.1f}). 모서리에서 대기.")
-                self._set_move_dir(0)
-                # 더 이상 위협 없으면 그냥 WAIT로 보내도 됨
-                self.flee_state = 'WAIT'
-                return BehaviorTree.RUNNING
-
-            # 너무 가까워졌고, 일정 시간 이상 압박당했으면 -> 플랫폼 탈출 시도
+            # 일정 시간 지나면 무조건 PLAN_RUN으로 넘어가게 만든다.
             if self.flee_edge_hold_since <= 0.0:
                 self.flee_edge_hold_since = now
             hold_time = now - self.flee_edge_hold_since
 
-            escape_trigger_dist = 180.0  # 이 거리보다 가까우면 '압박'으로 봄
-            min_hold_time = 0.3         # 최소 0.3초 정도는 버텨 본 뒤에 도망
+            EDGE_HOLD_MAX = 0.35  # 0.3~0.4초 정도 "모서리에서 버티는" 연출 시간
 
-            if dist < escape_trigger_dist and hold_time > min_hold_time:
-                #print(f"[EDGE-HOLD] 계속 압박(dist={dist:.1f}, t={hold_time:.2f}). PLAN_RUN으로 전환.")
+            if hold_time >= EDGE_HOLD_MAX:
+                # 더 버티지 말고 다른 플랫폼으로 탈출 시도
                 self._set_move_dir(0)
                 self.flee_state = 'PLAN_RUN'
                 self.flee_plan = None
